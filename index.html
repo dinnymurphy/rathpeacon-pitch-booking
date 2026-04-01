@@ -1,0 +1,1527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Pitch Booking">
+<meta name="theme-color" content="#1a4a2e">
+<title>Pitch Booking</title>
+<style>
+  :root {
+    --blue-dark: #0c2d6b;
+    --blue-mid: #1a4fa8;
+    --blue-light: #2e6fd4;
+    --blue-pale: #e6edf8;
+    --gold: #c9a227;
+    --white: #ffffff;
+    --off-white: #f7f8f6;
+    --border: #d0ddd4;
+    --text-main: #1a2e22;
+    --text-muted: #5a7060;
+    --text-light: #8aa090;
+    --danger: #c0392b;
+    --danger-light: #fdecea;
+    --radius: 12px;
+    --radius-sm: 8px;
+    --shadow-lg: 0 8px 32px rgba(26,74,46,0.18);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif;
+    background: var(--off-white);
+    color: var(--text-main);
+    min-height: 100vh;
+    padding-bottom: 80px;
+    overscroll-behavior: none;
+  }
+
+  /* ── SETUP ── */
+  #setupScreen {
+    position: fixed; inset: 0; background: var(--blue-dark); z-index: 1000;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 32px 24px; overflow-y: auto;
+  }
+  #setupScreen.hidden { display: none; }
+  .setup-logo { font-size: 48px; margin-bottom: 16px; }
+  .setup-title { color: white; font-size: 24px; font-weight: 700; text-align: center; margin-bottom: 6px; }
+  .setup-sub { color: rgba(255,255,255,0.55); font-size: 14px; text-align: center; margin-bottom: 32px; }
+  .setup-card { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); border-radius: var(--radius); padding: 24px; width: 100%; max-width: 420px; margin-bottom: 16px; }
+  .setup-card-title { color: rgba(255,255,255,0.9); font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 16px; }
+  .setup-step { display: flex; gap: 12px; margin-bottom: 14px; color: rgba(255,255,255,0.8); font-size: 14px; line-height: 1.5; }
+  .setup-step-num { background: var(--gold); color: #3a2800; width: 22px; height: 22px; border-radius: 50%; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+  .setup-link { color: var(--gold); }
+  .setup-input { width: 100%; padding: 11px 13px; border-radius: var(--radius-sm); border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1); color: white; font-size: 14px; font-family: monospace; margin-bottom: 10px; }
+  .setup-input::placeholder { color: rgba(255,255,255,0.3); }
+  .setup-input:focus { outline: none; border-color: var(--gold); }
+  .setup-label { color: rgba(255,255,255,0.65); font-size: 12px; margin-bottom: 6px; display: block; }
+  .setup-btn { width: 100%; max-width: 420px; padding: 16px; background: var(--gold); color: #2a1a00; border: none; border-radius: var(--radius-sm); font-size: 16px; font-weight: 700; cursor: pointer; font-family: inherit; transition: opacity 0.2s; }
+  .setup-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+  .setup-error { color: #ffb3b3; font-size: 13px; text-align: center; margin-top: 12px; display: none; line-height: 1.5; }
+  .setup-warn { background: rgba(255,200,50,0.15); border: 1px solid rgba(255,200,50,0.35); border-radius: 8px; padding: 12px 16px; color: rgba(255,255,255,0.85); font-size: 13px; line-height: 1.5; margin-bottom: 16px; width: 100%; max-width: 420px; display: none; }
+  .setup-btn:active { opacity: 0.85; }
+  .setup-error { color: #ffb3b3; font-size: 13px; text-align: center; margin-top: 12px; display: none; }
+
+  /* ── HEADER ── */
+  .app-header { background: var(--blue-dark); color: white; padding: max(env(safe-area-inset-top), 12px) 16px 14px; position: sticky; top: 0; z-index: 100; }
+  .header-inner { display: flex; align-items: center; justify-content: space-between; max-width: 480px; margin: 0 auto; }
+  .club-name { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255,255,255,0.5); margin-bottom: 2px; }
+  .app-title { font-size: 20px; font-weight: 700; }
+  .week-nav { display: flex; align-items: center; gap: 8px; }
+  .nav-btn { background: rgba(255,255,255,0.12); border: none; color: white; width: 32px; height: 32px; border-radius: 50%; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .nav-btn:active { background: rgba(255,255,255,0.28); }
+  .week-label { font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.85); min-width: 80px; text-align: center; }
+
+  /* ── SYNC BAR ── */
+  .sync-bar { background: var(--blue-mid); color: white; text-align: center; font-size: 12px; padding: 5px 16px; display: none; align-items: center; justify-content: center; gap: 6px; }
+  .sync-bar.visible { display: flex; }
+  .sync-bar.error { background: #8b2020; }
+  .sync-dot { width: 7px; height: 7px; border-radius: 50%; background: #6ee7a0; animation: pulse 1.5s infinite; }
+  .sync-bar.error .sync-dot { background: #ffaaaa; animation: none; }
+  @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.35} }
+
+  /* ── PITCH TABS ── */
+  .pitch-tabs { background: var(--blue-dark); border-bottom: 1px solid rgba(255,255,255,0.1); }
+  .pitch-tabs-inner { display: flex; max-width: 480px; margin: 0 auto; padding: 0 16px; gap: 4px; }
+  .pitch-tab { flex: 1; padding: 8px 4px; text-align: center; font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.45); cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; }
+  .pitch-tab.active { color: var(--gold); border-bottom-color: var(--gold); }
+  /* ── SECTION BAR (half-pitch selector) ── */
+  .section-bar { background: var(--blue-dark); border-bottom: 1px solid rgba(255,255,255,0.08); display: none; }
+  .section-bar.visible { display: block; }
+  .section-bar-inner { display: flex; max-width: 480px; margin: 0 auto; padding: 4px 16px 8px; gap: 6px; }
+  .sec-chip { flex: 1; text-align: center; padding: 6px 4px; border-radius: 20px; font-size: 12px; font-weight: 500; cursor: pointer; color: rgba(255,255,255,0.5); border: 1px solid rgba(255,255,255,0.15); transition: all 0.12s; }
+  .sec-chip.active { background: rgba(255,255,255,0.15); color: white; border-color: rgba(255,255,255,0.4); }
+
+
+  /* ── WEEK STRIP ── */
+  .week-strip { background: white; border-bottom: 1px solid var(--border); padding: 12px 16px 8px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .week-strip::-webkit-scrollbar { display: none; }
+  .week-strip-inner { display: flex; gap: 6px; max-width: 480px; margin: 0 auto; min-width: max-content; }
+  .day-chip { display: flex; flex-direction: column; align-items: center; padding: 6px 10px; border-radius: 20px; cursor: pointer; min-width: 44px; transition: all 0.15s; }
+  .day-chip.selected { background: var(--blue-dark); }
+  .day-chip:not(.selected):hover { background: var(--blue-pale); }
+  .day-chip .dn { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
+  .day-chip.selected .dn { color: rgba(255,255,255,0.6); }
+  .day-chip .dd { font-size: 18px; font-weight: 700; color: var(--text-main); }
+  .day-chip.selected .dd { color: white; }
+  .day-chip.today .dd { color: var(--blue-mid); }
+  .day-chip.selected.today .dd { color: var(--gold); }
+  .day-chip .dot { width: 5px; height: 5px; border-radius: 50%; margin-top: 3px; }
+  .day-chip .dot.on { background: var(--blue-light); }
+  .day-chip.selected .dot.on { background: var(--gold); }
+  .day-chip.wknd .dn { color: #b07d00; }
+  .day-chip.selected.wknd .dn { color: var(--gold); }
+
+  /* ── MAIN ── */
+  .main { max-width: 480px; margin: 0 auto; padding: 16px; }
+  .day-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 3px; }
+  .day-full-label { font-size: 17px; font-weight: 700; }
+  .day-sub { font-size: 12px; color: var(--text-muted); margin-bottom: 14px; }
+  .today-badge { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; background: var(--blue-pale); color: var(--blue-mid); padding: 3px 8px; border-radius: 10px; }
+
+  /* ── TIMELINE ── */
+  .timeline { display: flex; flex-direction: column; gap: 6px; }
+
+  /* One row per hour */
+  .hour-row {
+    display: flex; align-items: stretch; gap: 10px;
+  }
+  .hour-time {
+    font-size: 12px; font-weight: 600; color: var(--text-light);
+    min-width: 36px; padding-top: 13px; text-align: right;
+    font-variant-numeric: tabular-nums; flex-shrink: 0;
+  }
+  .hour-row.past .hour-time { opacity: 0.4; }
+  .hour-cell {
+    flex: 1; display: flex; flex-direction: column; gap: 4px;
+  }
+
+  .h-slot {
+    background: white; border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+    padding: 11px 14px; display: flex; align-items: center; gap: 12px;
+    cursor: pointer; transition: background 0.12s; position: relative; overflow: hidden; min-height: 48px;
+  }
+  .h-slot::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; border-radius: 4px 0 0 4px; }
+  .h-slot.available::before { background: var(--border); }
+  .h-slot.booked::before { background: var(--blue-light); }
+  .h-slot.past { opacity: 0.38; cursor: default; }
+  .h-slot.available:not(.past):active { background: var(--blue-pale); }
+
+  .h-info { flex: 1; }
+  .h-available { font-size: 14px; color: var(--text-light); }
+  .h-team { font-size: 14px; font-weight: 600; color: var(--text-main); }
+  .h-detail { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .h-by { font-size: 11px; color: var(--text-light); margin-top: 2px; }
+  .h-arrow { font-size: 16px; color: var(--text-light); flex-shrink: 0; }
+  .h-slot.booked .h-arrow { color: var(--blue-mid); }
+
+  .spinner-wrap { text-align: center; padding: 40px 0; }
+  .spinner { width: 28px; height: 28px; border: 3px solid var(--border); border-top-color: var(--blue-dark); border-radius: 50%; animation: spin 0.7s linear infinite; margin: 0 auto 12px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── VIEW TOGGLE ── */
+  .view-toggle-bar { background: white; border-bottom: 1px solid var(--border); display: flex; justify-content: center; padding: 8px 16px; }
+  .view-toggle { display: flex; background: var(--off-white); border-radius: 8px; padding: 3px; gap: 2px; }
+  .vt-btn { padding: 6px 18px; border-radius: 6px; font-size: 13px; font-weight: 500; border: none; background: transparent; color: var(--text-muted); cursor: pointer; font-family: inherit; transition: all 0.12s; }
+  .vt-btn.active { background: white; color: var(--text-main); box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+
+  /* ── WEEK VIEW ── */
+  .week-grid { max-width: 480px; margin: 0 auto; padding: 12px 16px; display: flex; flex-direction: column; gap: 8px; }
+  .wv-day { background: white; border: 1.5px solid var(--border); border-radius: var(--radius); overflow: hidden; cursor: pointer; transition: border-color 0.12s; }
+  .wv-day:active { border-color: var(--blue-light); }
+  .wv-day.wv-today { border-color: var(--blue-mid); }
+  .wv-day.wv-past { opacity: 0.48; }
+  .wv-day-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+  .wv-day.wv-empty .wv-day-header { border-bottom: none; }
+  .wv-day-label { display: flex; align-items: baseline; gap: 6px; }
+  .wv-day-name { font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+  .wv-day-num { font-size: 17px; font-weight: 700; color: var(--text-main); }
+  .wv-day.wv-today .wv-day-num { color: var(--blue-mid); }
+  .wv-day-count { font-size: 12px; color: var(--text-light); }
+  .wv-day-count.has { color: var(--blue-mid); font-weight: 600; }
+  .wv-bookings { padding: 8px 14px 10px; display: flex; flex-direction: column; gap: 4px; }
+  .wv-pill { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 5px 10px; border-radius: 6px; background: var(--blue-pale); }
+  .wv-pill.match { background: #fef3dc; }
+  .wv-pill.blitz { background: #eef2ff; }
+  .wv-ptime { font-size: 11px; font-weight: 600; color: var(--blue-dark); min-width: 40px; font-variant-numeric: tabular-nums; }
+  .wv-pill.match .wv-ptime { color: #8a5c00; }
+  .wv-pill.blitz .wv-ptime { color: #3730a3; }
+  .wv-pteam { font-weight: 500; color: var(--text-main); flex: 1; font-size: 13px; }
+  .wv-ptype { font-size: 11px; color: var(--text-muted); }
+
+  /* ── MONTH VIEW ── */
+  .month-wrapper { max-width: 480px; margin: 0 auto; padding: 12px 16px; }
+  .month-dow-header { display: grid; grid-template-columns: repeat(7, 1fr); margin-bottom: 4px; }
+  .month-dow { text-align: center; font-size: 11px; font-weight: 600; color: var(--text-light); letter-spacing: 0.04em; padding: 4px 0; }
+  .month-dow.wknd { color: #b07d00; }
+  .month-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+  .month-cell { aspect-ratio: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 8px; cursor: pointer; position: relative; transition: background 0.1s; }
+  .month-cell:active { background: var(--blue-pale); }
+  .month-cell.other { opacity: 0.22; pointer-events: none; }
+  .month-cell.today { background: var(--blue-dark); }
+  .month-cell.sel:not(.today) { background: var(--blue-pale); outline: 2px solid var(--blue-light); }
+  .month-cell.past:not(.today) .month-num { opacity: 0.5; }
+  .month-num { font-size: 14px; font-weight: 600; color: var(--text-main); line-height: 1; }
+  .month-cell.today .month-num { color: white; }
+  .month-cell.wknd .month-num { color: var(--text-muted); }
+  .month-dots { display: flex; gap: 2px; margin-top: 3px; flex-wrap: wrap; justify-content: center; max-width: 28px; }
+  .month-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+  .month-dot.t { background: var(--blue-light); }
+  .month-dot.m { background: var(--gold); }
+  .month-dot.o { background: #a5b4fc; }
+  .month-cell.today .month-dot { background: rgba(255,255,255,0.65); }
+
+  /* FAB ── */
+  .fab { position: fixed; bottom: calc(72px + env(safe-area-inset-bottom)); right: 16px; width: 56px; height: 56px; border-radius: 50%; background: var(--blue-dark); color: white; border: none; font-size: 28px; cursor: pointer; box-shadow: var(--shadow-lg); display: flex; align-items: center; justify-content: center; z-index: 200; transition: transform 0.15s; }
+  .fab:active { transform: scale(0.92); }
+
+  /* ── MODALS ── */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 300; display: flex; align-items: flex-end; }
+  .modal-overlay.hidden { display: none; }
+  .modal { background: white; border-radius: var(--radius) var(--radius) 0 0; width: 100%; max-width: 480px; margin: 0 auto; max-height: 92vh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .modal-handle { width: 36px; height: 4px; background: var(--border); border-radius: 2px; margin: 12px auto 0; }
+  .modal-header { padding: 16px 20px 12px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .modal-title { font-size: 17px; font-weight: 700; }
+  .modal-close { background: var(--off-white); border: none; width: 28px; height: 28px; border-radius: 50%; font-size: 15px; cursor: pointer; color: var(--text-muted); }
+  .modal-body { padding: 20px; }
+  .form-group { margin-bottom: 18px; }
+  .form-label { display: block; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; }
+  .form-note { font-size: 12px; color: var(--text-muted); margin-top: 6px; }
+  .form-control { width: 100%; padding: 12px 14px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); font-size: 16px; font-family: inherit; color: var(--text-main); background: white; appearance: none; -webkit-appearance: none; }
+  .form-control:focus { outline: none; border-color: var(--blue-light); }
+
+  /* start-time grid: 4 cols for :00 :15 :30 :45 */
+  .start-time-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .st-chip { padding: 9px 4px; text-align: center; border-radius: var(--radius-sm); border: 1.5px solid var(--border); font-size: 13px; font-weight: 500; cursor: pointer; background: white; transition: all 0.12s; line-height: 1.2; }
+  .st-chip .st-hour { font-size: 11px; color: var(--text-light); }
+  .st-chip.selected { background: var(--blue-dark); border-color: var(--blue-dark); color: white; }
+  .st-chip.selected .st-hour { color: rgba(255,255,255,0.65); }
+  .st-chip.blocked { background: var(--off-white); color: var(--text-light); cursor: not-allowed; text-decoration: line-through; border-color: transparent; }
+  .st-chip.past { opacity: 0.35; pointer-events: none; }
+
+  /* duration picker */
+  .dur-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .dur-chip { padding: 10px 4px; text-align: center; border-radius: var(--radius-sm); border: 1.5px solid var(--border); font-size: 13px; font-weight: 500; cursor: pointer; background: white; transition: all 0.12s; }
+  .dur-chip.selected { background: var(--blue-dark); border-color: var(--blue-dark); color: white; }
+  .dur-chip.conflict { background: var(--danger-light); color: var(--danger); border-color: var(--danger-light); cursor: not-allowed; }
+
+  .time-summary { background: var(--blue-pale); border-radius: var(--radius-sm); padding: 10px 14px; font-size: 14px; font-weight: 600; color: var(--blue-dark); margin-top: 10px; display: none; }
+
+  .chip-group { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { padding: 8px 14px; border-radius: 20px; border: 1.5px solid var(--border); font-size: 14px; font-weight: 500; cursor: pointer; background: white; color: var(--text-main); transition: all 0.12s; }
+  .chip.selected { background: var(--blue-dark); border-color: var(--blue-dark); color: white; }
+
+  .modal-footer { padding: 0 20px 20px; display: flex; gap: 10px; }
+  .btn { flex: 1; padding: 14px; border-radius: var(--radius-sm); font-size: 16px; font-weight: 600; border: none; cursor: pointer; font-family: inherit; transition: all 0.15s; }
+  .btn-primary { background: var(--blue-dark); color: white; }
+  .btn-primary:active { background: var(--blue-mid); }
+  .btn-secondary { background: var(--off-white); color: var(--text-main); }
+  .btn-danger { background: var(--danger-light); color: var(--danger); }
+
+  /* ── DETAIL ── */
+  .booking-detail { padding: 20px; }
+  .booking-badge { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; margin-bottom: 16px; }
+  .bm { background: #fef3dc; color: #8a5c00; }
+  .bt { background: var(--blue-pale); color: var(--blue-dark); }
+  .bo { background: #eef2ff; color: #3730a3; }
+  .detail-row { display: flex; gap: 14px; padding: 10px 0; border-bottom: 1px solid var(--border); align-items: flex-start; }
+  .detail-row:last-of-type { border-bottom: none; }
+  .detail-icon { font-size: 18px; min-width: 24px; }
+  .detail-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-light); margin-bottom: 2px; }
+  .detail-value { font-size: 15px; font-weight: 500; }
+
+  /* ── OVERVIEW ── */
+  .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 20px; }
+  .stat-card { background: white; border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+  .stat-value { font-size: 28px; font-weight: 700; color: var(--blue-dark); }
+  .stat-label { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .section-title { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 12px; }
+  .recent-card { background: white; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .recent-row { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--border); cursor: pointer; }
+  .recent-row:last-child { border-bottom: none; }
+  .recent-row:active { background: var(--blue-pale); }
+  .recent-icon { font-size: 18px; }
+  .recent-main { font-size: 14px; font-weight: 500; }
+  .recent-sub { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
+
+  /* ── SETTINGS ── */
+  .settings-card { background: white; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; margin-bottom: 8px; }
+  .settings-row { display: flex; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--border); gap: 12px; }
+  .settings-row:last-child { border-bottom: none; }
+  .settings-icon { font-size: 18px; min-width: 26px; }
+  .settings-text { flex: 1; }
+  .settings-label { font-size: 15px; font-weight: 500; }
+  .settings-sub { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .settings-input { background: var(--off-white); border: 1px solid var(--border); border-radius: 6px; padding: 6px 10px; font-size: 14px; width: 100%; margin-top: 6px; font-family: inherit; }
+  .settings-input:focus { outline: none; border-color: var(--blue-light); }
+  .settings-section { margin-bottom: 24px; }
+  .add-btn { width: 100%; padding: 12px; background: var(--off-white); border: 1.5px dashed var(--border); border-radius: var(--radius-sm); font-size: 14px; font-weight: 500; color: var(--text-muted); cursor: pointer; font-family: inherit; margin-top: 8px; }
+  .add-btn:active { background: var(--blue-pale); }
+
+  /* ── TOAST ── */
+  .toast { position: fixed; bottom: calc(90px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); background: var(--text-main); color: white; padding: 10px 20px; border-radius: 24px; font-size: 14px; font-weight: 500; z-index: 500; opacity: 0; transition: opacity 0.2s; white-space: nowrap; }
+  .toast.show { opacity: 1; }
+
+  /* ── BOTTOM NAV ── */
+  .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: white; border-top: 1px solid var(--border); padding: 8px 0 max(8px, env(safe-area-inset-bottom)); z-index: 200; display: flex; }
+  .bottom-tab { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 4px 0; cursor: pointer; border: none; background: transparent; color: var(--text-light); font-size: 10px; font-weight: 500; font-family: inherit; text-transform: uppercase; letter-spacing: 0.04em; transition: color 0.12s; }
+  .bottom-tab.active { color: var(--blue-dark); }
+  .bottom-tab svg { width: 22px; height: 22px; }
+</style>
+</head>
+<body>
+
+<!-- ══ SETUP ══════════════════════════════════════════════════════════ -->
+<div id="setupScreen">
+  <div class="setup-logo">🏟️</div>
+  <div class="setup-title">Pitch Booking</div>
+  <div class="setup-sub">One-time setup — about 5 minutes</div>
+
+  <div class="setup-card">
+    <div class="setup-card-title">Step 1 — Create your free database</div>
+    <div class="setup-step"><div class="setup-step-num">1</div><div>Go to <a class="setup-link" href="https://console.firebase.google.com" target="_blank">console.firebase.google.com</a> and sign in with Google</div></div>
+    <div class="setup-step"><div class="setup-step-num">2</div><div>Click <strong style="color:white">Add project</strong> → name it → continue through steps</div></div>
+    <div class="setup-step"><div class="setup-step-num">3</div><div>Build → Realtime Database → Create database → choose location → <strong style="color:white">Test mode</strong></div></div>
+    <div class="setup-step"><div class="setup-step-num">4</div><div>Project Settings (gear icon) → Your apps → click <strong style="color:white">&lt;/&gt;</strong> → register app → copy the <code style="color:var(--gold)">firebaseConfig</code> values below</div></div>
+  </div>
+
+  <div class="setup-card">
+    <div class="setup-card-title">Step 2 — Paste your config</div>
+    <label class="setup-label">API Key</label>
+    <input class="setup-input" id="cfg_apiKey" placeholder="AIzaSy...">
+    <label class="setup-label">Auth Domain</label>
+    <input class="setup-input" id="cfg_authDomain" placeholder="your-project.firebaseapp.com">
+    <label class="setup-label">Database URL</label>
+    <input class="setup-input" id="cfg_databaseURL" placeholder="https://your-project-default-rtdb.firebaseio.com">
+    <label class="setup-label">Project ID</label>
+    <input class="setup-input" id="cfg_projectId" placeholder="your-project-id">
+    <label class="setup-label">App ID</label>
+    <input class="setup-input" id="cfg_appId" placeholder="1:123456789:web:abc...">
+  </div>
+
+  <div class="setup-card">
+    <div class="setup-card-title">Step 3 — Club details</div>
+    <label class="setup-label">Club name</label>
+    <input class="setup-input" id="cfg_clubName" placeholder="e.g. Rathpeacon GAA" style="margin-bottom:10px">
+    <label class="setup-label">Your name</label>
+    <input class="setup-input" id="cfg_userName" placeholder="e.g. Denis Murphy">
+  </div>
+
+  <div class="setup-warn" id="sdkWarning">
+    ⚠️ <strong>Open in a browser first.</strong> This file must be opened in <strong>Safari</strong> or <strong>Chrome</strong> — not previewed inside Mail or Files. Tap the share icon → "Open in Safari".
+  </div>
+  <button class="setup-btn" id="connectBtn" onclick="completeSetup()">Connect &amp; Open App</button>
+  <div class="setup-error" id="setupError"></div>
+  <p style="color:rgba(255,255,255,0.3); font-size:12px; text-align:center; margin-top:20px; max-width:380px">Data lives in your own Firebase account. Share this file with managers — they enter the same config to join the shared database.</p>
+</div>
+
+<!-- ══ APP ════════════════════════════════════════════════════════════ -->
+<div id="appShell" style="display:none">
+  <div class="app-header">
+    <div class="header-inner">
+      <div>
+        <div class="club-name" id="clubNameHeader">Club</div>
+        <div class="app-title">Pitch Booking</div>
+      </div>
+      <div class="week-nav" id="weekNav">
+        <button class="nav-btn" onclick="navPrev()">‹</button>
+        <span class="week-label" id="weekLabel"></span>
+        <button class="nav-btn" onclick="navNext()">›</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="sync-bar" id="syncBar">
+    <div class="sync-dot"></div>
+    <span id="syncMsg">Connecting…</span>
+  </div>
+
+  <div class="pitch-tabs" id="pitchTabsBar">
+    <div class="pitch-tabs-inner" id="pitchTabsInner"></div>
+  </div>
+  <div class="section-bar" id="sectionBar">
+    <div class="section-bar-inner" id="sectionBarInner"></div>
+  </div>
+
+  <!-- CALENDAR -->
+  <div id="calendarView">
+    <div class="view-toggle-bar">
+      <div class="view-toggle">
+        <button class="vt-btn active" id="vt-day"   onclick="switchCalView('day')">Day</button>
+        <button class="vt-btn"        id="vt-week"  onclick="switchCalView('week')">Week</button>
+        <button class="vt-btn"        id="vt-month" onclick="switchCalView('month')">Month</button>
+      </div>
+    </div>
+
+    <!-- DAY -->
+    <div id="dayView">
+      <div class="week-strip">
+        <div class="week-strip-inner" id="weekStrip"></div>
+      </div>
+      <div class="main">
+        <div class="day-header">
+          <div class="day-full-label" id="selectedDayLabel"></div>
+          <span class="today-badge" id="todayBadge" style="display:none">Today</span>
+        </div>
+        <div class="day-sub" id="daySubLabel"></div>
+        <div class="timeline" id="timeline"></div>
+      </div>
+    </div>
+
+    <!-- WEEK -->
+    <div id="weekView" style="display:none">
+      <div class="week-grid" id="weekGrid"></div>
+    </div>
+
+    <!-- MONTH -->
+    <div id="monthView" style="display:none">
+      <div class="month-wrapper">
+        <div class="month-dow-header">
+          <div class="month-dow">M</div><div class="month-dow">T</div>
+          <div class="month-dow">W</div><div class="month-dow">T</div>
+          <div class="month-dow">F</div>
+          <div class="month-dow wknd">S</div><div class="month-dow wknd">S</div>
+        </div>
+        <div class="month-grid" id="monthGrid"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- OVERVIEW -->
+  <div id="statsView" style="display:none">
+    <div class="main">
+      <div class="stats-grid" id="statsGrid"></div>
+      <div class="section-title">Upcoming bookings</div>
+      <div id="recentBookings"></div>
+    </div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div id="settingsView" style="display:none">
+    <div class="main">
+      <div class="settings-section">
+        <div class="section-title">Club</div>
+        <div class="settings-card">
+          <div class="settings-row">
+            <div class="settings-icon">🏛️</div>
+            <div class="settings-text">
+              <div class="settings-label">Club name</div>
+              <input class="settings-input" id="settingClubName" onchange="saveSetting('clubName',this.value)">
+            </div>
+          </div>
+          <div class="settings-row">
+            <div class="settings-icon">👤</div>
+            <div class="settings-text">
+              <div class="settings-label">Your name</div>
+              <input class="settings-input" id="settingUserName" onchange="saveSetting('userName',this.value)">
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="settings-section">
+        <div class="section-title">Pitches</div>
+        <div class="settings-card" id="pitchSettingsList"></div>
+        <button class="add-btn" onclick="addPitch()">+ Add pitch</button>
+      </div>
+      <div class="settings-section">
+        <div class="section-title">Booking hours</div>
+        <div class="settings-card">
+          <div class="settings-row">
+            <div class="settings-icon">📅</div>
+            <div class="settings-text">
+              <div class="settings-label">Weekday hours (Mon–Fri)</div>
+              <div style="color:var(--text-muted);font-size:13px;margin-top:4px">5:00 pm – 10:00 pm</div>
+            </div>
+          </div>
+          <div class="settings-row">
+            <div class="settings-icon">🌞</div>
+            <div class="settings-text">
+              <div class="settings-label">Weekend hours (Sat–Sun)</div>
+              <div style="color:var(--text-muted);font-size:13px;margin-top:4px">9:00 am – 10:00 pm</div>
+            </div>
+          </div>
+        </div>
+        <p style="font-size:12px;color:var(--text-muted);margin-top:8px;padding:0 2px">Start times at :00, :15, :30, :45 each hour. Durations from 15 mins to 5 hours.</p>
+      </div>
+      <div class="settings-section">
+        <div class="section-title">Database</div>
+        <div class="settings-card">
+          <div class="settings-row" onclick="resetSetup()" style="cursor:pointer">
+            <div class="settings-icon">🔧</div>
+            <div class="settings-text"><div class="settings-label">Reconfigure Firebase</div><div class="settings-sub">Change database connection</div></div>
+          </div>
+          <div class="settings-row" onclick="clearOldBookings()" style="cursor:pointer">
+            <div class="settings-icon">🗑️</div>
+            <div class="settings-text"><div class="settings-label">Clear past bookings</div><div class="settings-sub">Remove bookings older than 30 days</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- BOOK MODAL -->
+<div class="modal-overlay hidden" id="bookModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-title" id="bookModalTitle">New Booking</div>
+      <button class="modal-close" onclick="closeModal('bookModal')">✕</button>
+    </div>
+    <div class="modal-body">
+
+      <div class="form-group">
+        <label class="form-label">Start time</label>
+        <div class="start-time-grid" id="startTimeGrid"></div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Duration</label>
+        <div class="dur-grid" id="durGrid"></div>
+        <div class="time-summary" id="timeSummary"></div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Type</label>
+        <div class="chip-group">
+          <div class="chip selected" data-group="type" data-val="Training" onclick="selectChip(this,'type')">Training</div>
+          <div class="chip" data-group="type" data-val="Match" onclick="selectChip(this,'type')">Match</div>
+          <div class="chip" data-group="type" data-val="Blitz" onclick="selectChip(this,'type')">Blitz</div>
+          <div class="chip" data-group="type" data-val="Other" onclick="selectChip(this,'type')">Other</div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Sport</label>
+        <div class="chip-group">
+          <div class="chip selected" data-group="sport" data-val="Football" onclick="selectChip(this,'sport')">⚽ Football</div>
+          <div class="chip" data-group="sport" data-val="Hurling" onclick="selectChip(this,'sport')">🏑 Hurling</div>
+          <div class="chip" data-group="sport" data-val="Ladies Football" onclick="selectChip(this,'sport')">⚽ Ladies Football</div>
+          <div class="chip" data-group="sport" data-val="Camogie" onclick="selectChip(this,'sport')">🏑 Camogie</div>
+          <div class="chip" data-group="sport" data-val="Other" onclick="selectChip(this,'sport')">Other</div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Team / Group</label>
+        <input type="text" class="form-control" id="bookTeam" placeholder="e.g. U14 Boys, Senior Women">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Booked by</label>
+        <input type="text" class="form-control" id="bookUser" placeholder="Your name">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Notes (optional)</label>
+        <input type="text" class="form-control" id="bookNotes" placeholder="Any extra info…">
+      </div>
+
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('bookModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="confirmBooking()">Confirm Booking</button>
+    </div>
+  </div>
+</div>
+
+<!-- DETAIL MODAL -->
+<div class="modal-overlay hidden" id="detailModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-title">Booking Details</div>
+      <button class="modal-close" onclick="closeModal('detailModal')">✕</button>
+    </div>
+    <div class="booking-detail" id="bookingDetail"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('detailModal')">Close</button>
+      <button class="btn btn-danger" id="cancelBookingBtn" onclick="cancelCurrentBooking()">Cancel Booking</button>
+    </div>
+  </div>
+</div>
+
+<button class="fab" id="fabBtn" onclick="openBookModal(null)" style="display:none">+</button>
+<div class="toast" id="toast"></div>
+
+<nav class="bottom-nav" id="bottomNav" style="display:none">
+  <button class="bottom-tab active" id="tab-calendar" onclick="switchTab('calendar')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+    Calendar
+  </button>
+  <button class="bottom-tab" id="tab-stats" onclick="switchTab('stats')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+    Overview
+  </button>
+  <button class="bottom-tab" id="tab-settings" onclick="switchTab('settings')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    Settings
+  </button>
+</nav>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+<script>
+// ══ CONFIG ════════════════════════════════════════════════════════════
+const WEEKDAY_START = 17 * 60;   // 17:00
+const WEEKDAY_END   = 22 * 60;   // 22:00
+const WEEKEND_START =  9 * 60;   // 09:00
+const WEEKEND_END   = 22 * 60;   // 22:00
+
+// Available durations in minutes
+const DURATIONS = [15, 30, 45, 60, 75, 90, 105, 120, 150, 180, 210, 240, 300];
+
+const MONTHS      = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const MONTHS_S    = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const DAYS_FULL   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const DAYS_S      = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+// ══ STATE ════════════════════════════════════════════════════════════
+let db = null, bookingsRef = null, settingsRef = null;
+let liveBookings = {};
+
+let settings = JSON.parse(localStorage.getItem('pb_settings') || 'null') || {
+  clubName: 'Rathpeacon GAA', pitches: ['Main Pitch', 'Back Pitch', 'Hall'], splitPitches: [0], userName: ''
+};
+
+let ui = {
+  weekOffset: 0,
+  selectedDate: todayStr(),
+  selectedPitch: 0,
+  currentTab: 'calendar',
+  calView: 'day',
+  selectedSection: 'full',
+  monthYear: { y: new Date().getFullYear(), m: new Date().getMonth() },
+  detailId: null,
+  bookStartMins: null,
+  bookDurMins: null,
+  loading: true
+};
+
+// ══ HELPERS ══════════════════════════════════════════════════════════
+function todayStr() { return new Date().toISOString().slice(0, 10); }
+function dateKey(d) { return d instanceof Date ? d.toISOString().slice(0, 10) : d; }
+
+function isWeekend(dateStr) {
+  const dow = new Date(dateStr + 'T12:00:00').getDay();
+  return dow === 0 || dow === 6;
+}
+
+function dayBounds(dateStr) {
+  return isWeekend(dateStr)
+    ? { start: WEEKEND_START, end: WEEKEND_END }
+    : { start: WEEKDAY_START, end: WEEKDAY_END };
+}
+
+// All valid start times (every 15 mins within bounds)
+function getStartTimes(dateStr) {
+  const { start, end } = dayBounds(dateStr);
+  const times = [];
+  for (let m = start; m < end; m += 15) times.push(m);
+  return times;
+}
+
+function minsToStr(m) {
+  return `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;
+}
+
+function durLabel(mins) {
+  if (mins < 60) return `${mins}m`;
+  const h = Math.floor(mins / 60), rem = mins % 60;
+  return rem === 0 ? `${h}h` : `${h}h ${rem}m`;
+}
+
+// Does a proposed booking overlap with existing bookings, respecting half-pitch sections?
+function getOverlappingBooking(dateStr, pitchIdx, startMins, durMins, section, excludeId = null) {
+  const propEnd = startMins + durMins;
+  return Object.values(liveBookings).find(b => {
+    if (b.date !== dateStr || b.pitch !== pitchIdx) return false;
+    if (excludeId && b.id === excludeId) return false;
+    // Check time overlap
+    const bEnd = b.startMins + b.durMins;
+    if (!(startMins < bEnd && propEnd > b.startMins)) return false;
+    // Check section conflict:
+    // full vs full, full vs half, half vs full all conflict; north vs south do NOT
+    const bSec = b.section || 'full';
+    if (section === 'full' || bSec === 'full') return true; // full always conflicts
+    return section === bSec; // two halves only conflict if same half
+  }) || null;
+}
+
+// Is a specific start time blocked for the current section?
+function isStartTimeBlocked(dateStr, pitchIdx, startMins) {
+  const sec = ui.selectedSection || 'full';
+  return Object.values(liveBookings).some(b => {
+    if (b.date !== dateStr || b.pitch !== pitchIdx) return false;
+    if (!(startMins >= b.startMins && startMins < b.startMins + b.durMins)) return false;
+    const bSec = b.section || 'full';
+    if (sec === 'full' || bSec === 'full') return true;
+    return sec === bSec;
+  });
+}
+
+// Maximum duration from start before hitting a conflicting booking or day end
+function maxDurFrom(dateStr, pitchIdx, startMins) {
+  const { end } = dayBounds(dateStr);
+  let max = end - startMins;
+  const sec = ui.selectedSection || 'full';
+  Object.values(liveBookings).forEach(b => {
+    if (b.date !== dateStr || b.pitch !== pitchIdx) return;
+    if (b.startMins <= startMins) return;
+    const bSec = b.section || 'full';
+    const conflicts = (sec === 'full' || bSec === 'full') ? true : sec === bSec;
+    if (conflicts) max = Math.min(max, b.startMins - startMins);
+  });
+  return max;
+}
+
+// ══ SETUP ════════════════════════════════════════════════════════════
+function checkSetup() {
+  const cfg = JSON.parse(localStorage.getItem('pb_config') || 'null');
+  if (cfg && cfg.apiKey && cfg.databaseURL) {
+    document.getElementById('setupScreen').classList.add('hidden');
+    initFirebase(cfg);
+  }
+}
+
+function showSetupError(msg) {
+  const e = document.getElementById('setupError');
+  e.innerHTML = msg; e.style.display = 'block';
+  const btn = document.getElementById('connectBtn');
+  if (btn) { btn.disabled = false; btn.textContent = 'Connect & Open App'; }
+}
+
+function completeSetup() {
+  // Check Firebase SDK loaded
+  if (typeof firebase === 'undefined') {
+    document.getElementById('sdkWarning').style.display = 'block';
+    showSetupError('Firebase SDK did not load. Make sure this file is open in <strong>Safari or Chrome</strong> with an internet connection — not in Mail or Files preview.');
+    return;
+  }
+
+  const cfg = {
+    apiKey:      document.getElementById('cfg_apiKey').value.trim(),
+    authDomain:  document.getElementById('cfg_authDomain').value.trim(),
+    databaseURL: document.getElementById('cfg_databaseURL').value.trim(),
+    projectId:   document.getElementById('cfg_projectId').value.trim(),
+    appId:       document.getElementById('cfg_appId').value.trim()
+  };
+
+  if (!cfg.apiKey) { showSetupError('API Key is missing — copy it from Firebase Project Settings'); return; }
+  if (!cfg.databaseURL) { showSetupError('Database URL is missing — it looks like https://your-project-default-rtdb.europe-west1.firebasedatabase.app'); return; }
+
+  // Show loading state
+  const btn = document.getElementById('connectBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Connecting…'; }
+
+  settings.clubName = document.getElementById('cfg_clubName').value.trim() || 'Rathpeacon GAA';
+  settings.userName = document.getElementById('cfg_userName').value.trim();
+  localStorage.setItem('pb_config', JSON.stringify(cfg));
+  localStorage.setItem('pb_settings', JSON.stringify(settings));
+  initFirebase(cfg);
+}
+
+function resetSetup() {
+  if (!confirm('Reconfigure Firebase? App will reload.')) return;
+  localStorage.removeItem('pb_config');
+  location.reload();
+}
+
+// ══ FIREBASE ═════════════════════════════════════════════════════════
+function initFirebase(cfg) {
+  try {
+    // Avoid duplicate app init on reload
+    const existingApp = firebase.apps && firebase.apps.length ? firebase.apps[0] : null;
+    const app = existingApp || firebase.initializeApp(cfg);
+    db = firebase.database(app);
+    bookingsRef = db.ref('bookings');
+    settingsRef = db.ref('settings');
+
+    // Test connection with a timeout
+    let connected = false;
+    const timeout = setTimeout(() => {
+      if (!connected) {
+        document.getElementById('setupScreen').classList.remove('hidden');
+        document.getElementById('appShell').style.display = 'none';
+        showSetupError('Could not connect to database. Check your API Key and Database URL are correct, and that your phone has internet access.');
+        localStorage.removeItem('pb_config');
+      }
+    }, 10000);
+
+    bookingsRef.on('value', snap => {
+      connected = true;
+      clearTimeout(timeout);
+      liveBookings = snap.val() || {};
+      ui.loading = false;
+      setSyncStatus('live');
+      if (document.getElementById('appShell').style.display === 'none') {
+        document.getElementById('setupScreen').classList.add('hidden');
+        showApp();
+      }
+      render();
+    }, (err) => {
+      clearTimeout(timeout);
+      document.getElementById('setupScreen').classList.remove('hidden');
+      document.getElementById('appShell').style.display = 'none';
+      showSetupError('Database error: ' + (err.message || 'Permission denied. Check your Firebase Rules are set to allow read/write.'));
+      localStorage.removeItem('pb_config');
+    });
+
+    settingsRef.on('value', snap => {
+      const r = snap.val();
+      if (r) { settings = {...settings, ...r}; localStorage.setItem('pb_settings', JSON.stringify(settings)); updateHeaderClub(); }
+    });
+
+    showApp();
+    setSyncStatus('connecting');
+
+  } catch(e) {
+    document.getElementById('setupScreen').classList.remove('hidden');
+    showSetupError('Setup error: ' + e.message + '<br><br>Double-check all fields were copied correctly from Firebase.');
+    localStorage.removeItem('pb_config');
+  }
+}
+
+function setSyncStatus(state, msg) {
+  const bar = document.getElementById('syncBar');
+  const dot = bar.querySelector('.sync-dot');
+  if (state === 'live') {
+    bar.classList.add('visible'); bar.classList.remove('error');
+    dot.style.animation = '';
+    document.getElementById('syncMsg').textContent = 'Live — all managers see this';
+    setTimeout(() => bar.classList.remove('visible'), 3000);
+  } else if (state === 'connecting') {
+    bar.classList.add('visible'); bar.classList.remove('error');
+    document.getElementById('syncMsg').textContent = 'Connecting to shared database…';
+  } else {
+    bar.classList.add('visible', 'error');
+    dot.style.animation = 'none';
+    document.getElementById('syncMsg').textContent = msg || 'Connection error';
+  }
+}
+
+// ══ RENDER ═══════════════════════════════════════════════════════════
+function showApp() {
+  document.getElementById('appShell').style.display = 'block';
+  document.getElementById('bottomNav').style.display = 'flex';
+  document.getElementById('fabBtn').style.display = 'flex';
+  updateHeaderClub();
+  render();
+}
+
+function render() {
+  renderPitchTabs();
+  if (ui.calView === 'day') { renderWeekStrip(); renderTimeline(); }
+  else if (ui.calView === 'week') renderWeekView();
+  else if (ui.calView === 'month') renderMonthView();
+  updateNavLabel();
+}
+
+function updateHeaderClub() {
+  document.getElementById('clubNameHeader').textContent = settings.clubName || 'Club';
+}
+
+function updateNavLabel() {
+  if (ui.calView === 'month') {
+    const d = new Date(ui.monthYear.y, ui.monthYear.m, 1);
+    document.getElementById('weekLabel').textContent =
+      d.toLocaleString('default', { month: 'long', year: 'numeric' });
+  } else {
+    const dates = getWeekDates(ui.weekOffset);
+    document.getElementById('weekLabel').textContent = formatWeek(dates);
+  }
+}
+
+function switchCalView(v) {
+  ui.calView = v;
+  ['day','week','month'].forEach(n => {
+    document.getElementById(`${n}View`).style.display = n === v ? 'block' : 'none';
+    document.getElementById(`vt-${n}`).classList.toggle('active', n === v);
+  });
+  render();
+}
+
+function navPrev() {
+  if (ui.calView === 'month') {
+    ui.monthYear.m--;
+    if (ui.monthYear.m < 0) { ui.monthYear.m = 11; ui.monthYear.y--; }
+    renderMonthView();
+  } else {
+    changeWeek(-1);
+  }
+  updateNavLabel();
+}
+
+function navNext() {
+  if (ui.calView === 'month') {
+    ui.monthYear.m++;
+    if (ui.monthYear.m > 11) { ui.monthYear.m = 0; ui.monthYear.y++; }
+    renderMonthView();
+  } else {
+    changeWeek(1);
+  }
+  updateNavLabel();
+}
+
+function renderPitchTabs() {
+  document.getElementById('pitchTabsInner').innerHTML = settings.pitches.map((p, i) =>
+    `<div class="pitch-tab ${i===ui.selectedPitch?'active':''}" onclick="selectPitch(${i})">${p}</div>`
+  ).join('');
+  renderSectionBar();
+}
+
+function renderSectionBar() {
+  const pitchName = (settings.pitches[ui.selectedPitch] || '').toLowerCase();
+  const isSplit = pitchName.includes('main') || (settings.splitPitches || []).includes(ui.selectedPitch);
+  const bar = document.getElementById('sectionBar');
+  if (!isSplit) { bar.classList.remove('visible'); return; }
+  bar.classList.add('visible');
+  const sections = [
+    { key: 'full',  label: 'Full Pitch' },
+    { key: 'north', label: 'Top Half' },
+    { key: 'south', label: 'Bottom Half' }
+  ];
+  document.getElementById('sectionBarInner').innerHTML = sections.map(s =>
+    `<div class="sec-chip ${ui.selectedSection===s.key?'active':''}" onclick="selectSection('${s.key}')">${s.label}</div>`
+  ).join('');
+}
+
+function selectSection(sec) {
+  ui.selectedSection = sec;
+  renderSectionBar();
+  render();
+}
+
+// ── WEEK VIEW ─────────────────────────────────────────────────────────
+function renderWeekView() {
+  const dates = getWeekDates(ui.weekOffset);
+  const today = todayStr();
+  const grid = document.getElementById('weekGrid');
+
+  grid.innerHTML = dates.map((d, i) => {
+    const dk = dateKey(d);
+    const isToday = dk === today;
+    const isPast = dk < today;
+    const isWknd = i >= 5;
+    const dayBookings = Object.values(liveBookings)
+      .filter(b => {
+        if (b.date !== dk || b.pitch !== ui.selectedPitch) return false;
+        const bSec = b.section || 'full';
+        const curSec = ui.selectedSection || 'full';
+        if (curSec === 'full' || bSec === 'full') return true;
+        return curSec === bSec;
+      })
+      .sort((a, b) => a.startMins - b.startMins);
+
+    const dayNames = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+
+    let pillsHtml = '';
+    if (dayBookings.length > 0) {
+      pillsHtml = `<div class="wv-bookings">${dayBookings.map(b => {
+        const cls = b.type === 'Match' ? 'match' : b.type === 'Blitz' ? 'blitz' : '';
+        const secTag = b.section && b.section !== 'full' ? ' · ' + (b.section === 'north' ? 'Top' : 'Bot') + ' half' : '';
+        const bid2 = b.id;
+        const wvIcon = bookingIcon(b);
+        return `<div class="wv-pill ${cls}" onclick="event.stopPropagation();showDetail('${bid2}')">
+          <div class="wv-ptime">${minsToStr(b.startMins)}</div>
+          <div class="wv-pteam">${wvIcon} ${b.team}</div>
+          <div class="wv-ptype">${b.type}${b.sport && b.sport !== 'Other' ? ' · ' + b.sport : ''}${secTag} · ${durLabel(b.durMins)}</div>
+        </div>`;
+      }).join('')}</div>`;
+    }
+
+    const countLabel = dayBookings.length === 0
+      ? `<span class="wv-day-count">No bookings</span>`
+      : `<span class="wv-day-count has">${dayBookings.length} booking${dayBookings.length>1?'s':''}</span>`;
+
+    return `<div class="wv-day ${isToday?'wv-today':''} ${isPast?'wv-past':''} ${dayBookings.length===0?'wv-empty':''}"
+      onclick="selectDay('${dk}'); switchCalView('day')">
+      <div class="wv-day-header">
+        <div class="wv-day-label">
+          <div class="wv-day-name">${dayNames[i].slice(0,3)}</div>
+          <div class="wv-day-num">${d.getDate()}</div>
+        </div>
+        ${countLabel}
+      </div>
+      ${pillsHtml}
+    </div>`;
+  }).join('');
+}
+
+// ── MONTH VIEW ────────────────────────────────────────────────────────
+function renderMonthView() {
+  const { y, m } = ui.monthYear;
+  const today = todayStr();
+  const firstDay = new Date(y, m, 1);
+  const lastDay = new Date(y, m + 1, 0);
+
+  // Monday-first: 0=Mon..6=Sun
+  let startDow = firstDay.getDay() - 1;
+  if (startDow < 0) startDow = 6;
+
+  let cells = '';
+
+  // Pad start
+  for (let i = 0; i < startDow; i++) {
+    const pd = new Date(y, m, 1 - (startDow - i));
+    cells += `<div class="month-cell other"><div class="month-num">${pd.getDate()}</div></div>`;
+  }
+
+  // Days of month
+  for (let day = 1; day <= lastDay.getDate(); day++) {
+    const dk = `${y}-${String(m+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    const isToday = dk === today;
+    const isPast = dk < today;
+    const isSel = dk === ui.selectedDate;
+    const dow = new Date(y, m, day).getDay(); // 0=Sun
+    const isWknd = dow === 0 || dow === 6;
+
+    const curSec = ui.selectedSection || 'full';
+    const dayBookings = Object.values(liveBookings).filter(b => {
+      if (b.date !== dk || b.pitch !== ui.selectedPitch) return false;
+      const bSec = b.section || 'full';
+      if (curSec === 'full' || bSec === 'full') return true;
+      return curSec === bSec;
+    });
+
+    // Up to 3 dots, color by type
+    const dotHtml = dayBookings.slice(0, 3).map(b => {
+      const cls = b.type === 'Match' ? 'm' : b.type === 'Other' || b.type === 'Blitz' ? 'o' : 't';
+      return `<div class="month-dot ${cls}"></div>`;
+    }).join('');
+
+    cells += `<div class="month-cell ${isToday?'today':''} ${isSel&&!isToday?'sel':''} ${isPast&&!isToday?'past':''} ${isWknd?'wknd':''}"
+      onclick="selectDay('${dk}'); switchCalView('day')">
+      <div class="month-num">${day}</div>
+      ${dotHtml ? `<div class="month-dots">${dotHtml}</div>` : ''}
+    </div>`;
+  }
+
+  // Pad end to complete grid
+  const total = startDow + lastDay.getDate();
+  const remainder = total % 7 === 0 ? 0 : 7 - (total % 7);
+  for (let i = 1; i <= remainder; i++) {
+    cells += `<div class="month-cell other"><div class="month-num">${i}</div></div>`;
+  }
+
+  document.getElementById('monthGrid').innerHTML = cells;
+}
+
+function renderWeekStrip() {
+  const dates = getWeekDates(ui.weekOffset);
+  document.getElementById('weekStrip').innerHTML = dates.map((d, i) => {
+    const dk = dateKey(d);
+    const isToday = dk === todayStr();
+    const isSel = dk === ui.selectedDate;
+    const hasBooks = Object.values(liveBookings).some(b => {
+      if (b.date !== dk || b.pitch !== ui.selectedPitch) return false;
+      const bSec = b.section || 'full'; const curSec2 = ui.selectedSection || 'full';
+      if (curSec2 === 'full' || bSec === 'full') return true;
+      return curSec2 === bSec;
+    });
+    const isWknd = i >= 5;
+    return `<div class="day-chip${isSel?' selected':''}${isToday?' today':''}${isWknd?' wknd':''}" onclick="selectDay('${dk}')">
+      <div class="dn">${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][i]}</div>
+      <div class="dd">${d.getDate()}</div>
+      <div class="dot ${hasBooks?'on':''}"></div>
+    </div>`;
+  }).join('');
+}
+
+function renderTimeline() {
+  const dateStr = ui.selectedDate;
+  const today = todayStr();
+  const now = new Date();
+  const nowMins = now.getHours() * 60 + now.getMinutes();
+  const { start, end } = dayBounds(dateStr);
+  const weekend = isWeekend(dateStr);
+
+  const sel = new Date(dateStr + 'T12:00:00');
+  document.getElementById('selectedDayLabel').textContent =
+    `${DAYS_FULL[sel.getDay()]}, ${sel.getDate()} ${MONTHS[sel.getMonth()]}`;
+  document.getElementById('todayBadge').style.display = dateStr === today ? 'block' : 'none';
+  document.getElementById('daySubLabel').textContent = weekend
+    ? 'Weekend · 9:00 am – 10:00 pm'
+    : 'Weekday · 5:00 pm – 10:00 pm';
+
+  if (ui.loading) {
+    document.getElementById('timeline').innerHTML = `<div class="spinner-wrap"><div class="spinner"></div><div style="font-size:14px;color:var(--text-muted)">Loading…</div></div>`;
+    return;
+  }
+
+  const tl = document.getElementById('timeline');
+  let html = '';
+
+  const startHour = Math.floor(start / 60);
+  const endHour = Math.ceil(end / 60);
+
+  const sec = ui.selectedSection || 'full';
+  const dayBookings = Object.values(liveBookings)
+    .filter(b => {
+      if (b.date !== dateStr || b.pitch !== ui.selectedPitch) return false;
+      const bSec = b.section || 'full';
+      if (sec === 'full' || bSec === 'full') return true;
+      return sec === bSec;
+    })
+    .sort((a, b) => a.startMins - b.startMins);
+
+  // Build a set of hours that are mid-booking (don't start here, just pass through)
+  // These rows are skipped entirely so they don't look bookable
+  const midBookingHours = new Set();
+  dayBookings.forEach(b => {
+    const bEnd = b.startMins + b.durMins;
+    const startHr = Math.floor(b.startMins / 60);
+    const endHr = Math.ceil(bEnd / 60);
+    for (let h = startHr + 1; h < endHr; h++) midBookingHours.add(h);
+  });
+
+  for (let hour = startHour; hour < endHour; hour++) {
+    // Skip hours that are inside an ongoing booking — booking already shown at its start hour
+    if (midBookingHours.has(hour)) continue;
+
+    const hourStart = hour * 60;
+    const hourEnd = hourStart + 60;
+    const h12 = hour > 12 ? hour - 12 : (hour === 0 ? 12 : hour);
+    const ampm = hour >= 12 ? 'pm' : 'am';
+    const hourLabel = `${h12}${ampm}`;
+    const isPast = dateStr < today || (dateStr === today && hourEnd <= nowMins);
+
+    // Bookings that START in this hour (could be :00, :15, :30, :45)
+    const startingHere = dayBookings.filter(b => Math.floor(b.startMins / 60) === hour);
+
+    html += `<div class="hour-row${isPast?' past':''}">`;
+    html += `<div class="hour-time">${hourLabel}</div>`;
+    html += `<div class="hour-cell">`;
+
+    if (startingHere.length > 0) {
+      for (const b of startingHere) {
+        const bEnd = b.startMins + b.durMins;
+        const typeColor = b.type==='Match' ? '#7a4f00' : b.type==='Training' ? '#0c2d6b' : '#3730a3';
+        const startStr = minsToStr(b.startMins);
+        const endStr = minsToStr(bEnd);
+        const offsetNote = b.startMins % 60 !== 0
+          ? `<span style="font-size:11px;color:rgba(255,255,255,0.55);font-weight:400;margin-left:4px">:${String(b.startMins%60).padStart(2,'0')} start</span>`
+          : '';
+        const bid = b.id;
+        html += `<div class="h-slot booked${isPast?' past':''}" onclick="${isPast?'':"showDetail('" + bid + "')"}">
+          <div class="h-info">
+            <div class="h-team">${bookingIcon(b)} ${b.team}${offsetNote}</div>
+            <div class="h-detail" style="color:${typeColor}">${b.type} · ${startStr}–${endStr} · ${durLabel(b.durMins)}</div>
+            <div class="h-by">Booked by ${b.user}</div>
+          </div>
+          <div class="h-arrow">${isPast?'':'›'}</div>
+        </div>`;
+      }
+    } else {
+      // Genuinely free hour
+      const earliestStart = Math.max(hourStart, start);
+      html += `<div class="h-slot available${isPast?' past':''}" onclick="${isPast?'':'openBookModal('+earliestStart+')'}">
+        <div class="h-info"><div class="h-available">Available</div></div>
+        <div class="h-arrow" style="opacity:0.3">+</div>
+      </div>`;
+    }
+
+    html += `</div></div>`;
+  }
+
+  if (!html) html = `<p style="text-align:center;color:var(--text-muted);padding:40px 0;font-size:14px">No slots today</p>`;
+  tl.innerHTML = html;
+}
+
+// ══ WEEK HELPERS ═════════════════════════════════════════════════════
+function getWeekDates(offset) {
+  const today = new Date();
+  const dow = today.getDay();
+  const mon = new Date(today);
+  mon.setDate(today.getDate() - (dow === 0 ? 6 : dow - 1) + offset * 7);
+  return Array.from({length: 7}, (_, i) => { const d = new Date(mon); d.setDate(mon.getDate() + i); return d; });
+}
+
+function formatWeek(dates) {
+  const s = dates[0], e = dates[6];
+  return s.getMonth() === e.getMonth()
+    ? `${s.getDate()}–${e.getDate()} ${MONTHS_S[s.getMonth()]}`
+    : `${s.getDate()} ${MONTHS_S[s.getMonth()]} – ${e.getDate()} ${MONTHS_S[e.getMonth()]}`;
+}
+
+// ══ BOOKING MODAL ═════════════════════════════════════════════════════
+function openBookModal(preselectedStartMins) {
+  ui.bookStartMins = preselectedStartMins !== null && preselectedStartMins !== undefined ? preselectedStartMins : null;
+  ui.bookDurMins = null;
+  const secLabels = { full: '', north: ' · Top Half', south: ' · Bottom Half' };
+  document.getElementById('bookModalTitle').textContent = 'New Booking — ' + (settings.pitches[ui.selectedPitch] || 'Pitch') + (secLabels[ui.selectedSection] || '');
+  document.getElementById('bookTeam').value = '';
+  document.getElementById('bookUser').value = settings.userName || '';
+  document.getElementById('bookNotes').value = '';
+  document.querySelectorAll('[data-group="type"]').forEach(c => c.classList.toggle('selected', c.dataset.val === 'Training'));
+  document.querySelectorAll('[data-group="sport"]').forEach(c => c.classList.toggle('selected', c.dataset.val === 'Football'));
+  renderStartTimeGrid();
+  renderDurGrid();
+  updateTimeSummary();
+  openModal('bookModal');
+}
+
+function renderStartTimeGrid() {
+  const times = getStartTimes(ui.selectedDate);
+  const today = todayStr();
+  const now = new Date();
+  const nowMins = now.getHours() * 60 + now.getMinutes();
+
+  document.getElementById('startTimeGrid').innerHTML = times.map(m => {
+    const blocked = isStartTimeBlocked(ui.selectedDate, ui.selectedPitch, m);
+    const isPast = ui.selectedDate < today || (ui.selectedDate === today && m <= nowMins);
+    const isSel = m === ui.bookStartMins;
+    const hour = Math.floor(m / 60);
+    const min = m % 60;
+    const h12 = hour > 12 ? hour - 12 : (hour === 0 ? 12 : hour);
+    const ampm = hour >= 12 ? 'pm' : 'am';
+    const minStr = min === 0 ? '' : `:${String(min).padStart(2,'0')}`;
+    const cls = blocked ? 'blocked' : isPast ? 'past' : isSel ? 'selected' : '';
+    return `<div class="st-chip ${cls}" onclick="${blocked||isPast?'':'selectStartTime('+m+')'} ">
+      <div>${h12}${minStr}</div>
+      <div class="st-hour">${min===0?ampm:ampm}</div>
+    </div>`;
+  }).join('');
+}
+
+function selectStartTime(m) {
+  ui.bookStartMins = m;
+  ui.bookDurMins = null; // reset duration when start changes
+  renderStartTimeGrid();
+  renderDurGrid();
+  updateTimeSummary();
+}
+
+function renderDurGrid() {
+  if (ui.bookStartMins === null) {
+    document.getElementById('durGrid').innerHTML = `<div style="grid-column:1/-1;font-size:13px;color:var(--text-muted);padding:8px 0">Select a start time first</div>`;
+    return;
+  }
+  const maxDur = maxDurFrom(ui.selectedDate, ui.selectedPitch, ui.bookStartMins);
+  const { end } = dayBounds(ui.selectedDate);
+  const absoluteMax = end - ui.bookStartMins;
+
+  document.getElementById('durGrid').innerHTML = DURATIONS.map(d => {
+    const conflict = d > maxDur;
+    const tooLong = d > absoluteMax;
+    if (tooLong) return ''; // don't show durations that exceed day end
+    const isSel = d === ui.bookDurMins;
+    const cls = conflict ? 'conflict' : isSel ? 'selected' : '';
+    return `<div class="dur-chip ${cls}" onclick="${conflict?'':' selectDur('+d+')'}">${durLabel(d)}</div>`;
+  }).join('');
+}
+
+function selectDur(mins) {
+  ui.bookDurMins = mins;
+  renderDurGrid();
+  updateTimeSummary();
+}
+
+function updateTimeSummary() {
+  const el = document.getElementById('timeSummary');
+  if (ui.bookStartMins !== null && ui.bookDurMins !== null) {
+    const endMins = ui.bookStartMins + ui.bookDurMins;
+    el.textContent = `⏱ ${minsToStr(ui.bookStartMins)} – ${minsToStr(endMins)}  (${durLabel(ui.bookDurMins)})`;
+    el.style.display = 'block';
+  } else {
+    el.style.display = 'none';
+  }
+}
+
+function selectChip(el, group) {
+  document.querySelectorAll(`[data-group="${group}"]`).forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+function confirmBooking() {
+  if (ui.bookStartMins === null) { showToast('Please select a start time'); return; }
+  if (!ui.bookDurMins) { showToast('Please select a duration'); return; }
+  const team = document.getElementById('bookTeam').value.trim();
+  if (!team) { showToast('Please enter team / group name'); return; }
+  const user = document.getElementById('bookUser').value.trim() || 'Unknown';
+  const type = document.querySelector('[data-group="type"].selected')?.dataset.val || 'Training';
+  const sport = document.querySelector('[data-group="sport"].selected')?.dataset.val || 'Football';
+  const notes = document.getElementById('bookNotes').value.trim();
+
+  // Race condition guard
+  const sec = ui.selectedSection || 'full';
+  if (getOverlappingBooking(ui.selectedDate, ui.selectedPitch, ui.bookStartMins, ui.bookDurMins, sec)) {
+    showToast('Slot just taken — please choose another');
+    renderStartTimeGrid(); renderDurGrid(); return;
+  }
+
+  const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+  const booking = {
+    id, date: ui.selectedDate, pitch: ui.selectedPitch,
+    section: ui.selectedSection || 'full',
+    startMins: ui.bookStartMins, durMins: ui.bookDurMins,
+    team, user, type, sport, notes,
+    createdAt: new Date().toISOString()
+  };
+
+  bookingsRef.child(id).set(booking)
+    .then(() => { closeModal('bookModal'); showToast('Booking confirmed ✓'); })
+    .catch(() => showToast('Save failed — check connection'));
+}
+
+// ══ DETAIL MODAL ═════════════════════════════════════════════════════
+function showDetail(id) {
+  const b = liveBookings[id] || Object.values(liveBookings).find(x => x.id === id);
+  if (!b) return;
+  ui.detailId = id;
+  const d = new Date(b.date + 'T12:00:00');
+  const pitch = settings.pitches[b.pitch] || 'Pitch';
+  const endMins = b.startMins + b.durMins;
+  const badgeCls = b.type === 'Match' ? 'bm' : b.type === 'Training' ? 'bt' : 'bo';
+
+  document.getElementById('bookingDetail').innerHTML = `
+    <span class="booking-badge ${badgeCls}">${b.type}</span>
+    <div class="detail-row"><div class="detail-icon">👥</div><div><div class="detail-label">Team / Group</div><div class="detail-value">${b.team}</div></div></div>
+    <div class="detail-row"><div class="detail-icon">📅</div><div><div class="detail-label">Date</div><div class="detail-value">${DAYS_FULL[d.getDay()]}, ${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}</div></div></div>
+    <div class="detail-row"><div class="detail-icon">🕐</div><div><div class="detail-label">Time</div><div class="detail-value">${minsToStr(b.startMins)} – ${minsToStr(endMins)} (${durLabel(b.durMins)})</div></div></div>
+    <div class="detail-row"><div class="detail-icon">🏟️</div><div><div class="detail-label">Pitch</div><div class="detail-value">${pitch}${b.section && b.section !== 'full' ? ' · ' + (b.section === 'north' ? 'Top Half' : 'Bottom Half') : ''}</div></div></div>
+    <div class="detail-row"><div class="detail-icon">👤</div><div><div class="detail-label">Booked by</div><div class="detail-value">${b.user}</div></div></div>
+    ${b.sport ? `<div class="detail-row"><div class="detail-icon">${bookingIcon(b)}</div><div><div class="detail-label">Sport</div><div class="detail-value">${b.sport}</div></div></div>` : ''}
+    ${b.notes ? `<div class="detail-row"><div class="detail-icon">📝</div><div><div class="detail-label">Notes</div><div class="detail-value">${b.notes}</div></div></div>` : ''}
+  `;
+  document.getElementById('cancelBookingBtn').style.display = b.date < todayStr() ? 'none' : 'block';
+  openModal('detailModal');
+}
+
+function cancelCurrentBooking() {
+  if (!ui.detailId) return;
+  if (!confirm('Cancel this booking? This removes it for everyone.')) return;
+  const ref = bookingsRef.child(ui.detailId);
+  ref.remove()
+    .then(() => { closeModal('detailModal'); showToast('Booking cancelled'); })
+    .catch(() => showToast('Error — check connection'));
+}
+
+// ══ NAVIGATION ═══════════════════════════════════════════════════════
+function changeWeek(dir) {
+  ui.weekOffset += dir;
+  const dates = getWeekDates(ui.weekOffset);
+  const dks = dates.map(dateKey);
+  if (!dks.includes(ui.selectedDate)) ui.selectedDate = dks[0];
+  render();
+}
+function selectDay(dk) {
+  ui.selectedDate = dk;
+  // sync monthYear if needed
+  const d = new Date(dk + 'T12:00:00');
+  ui.monthYear = { y: d.getFullYear(), m: d.getMonth() };
+  // sync weekOffset
+  const today = new Date();
+  const todayMon = new Date(today);
+  const dow = today.getDay();
+  todayMon.setDate(today.getDate() - (dow===0?6:dow-1));
+  const targetMon = new Date(d);
+  const tdow = d.getDay();
+  targetMon.setDate(d.getDate() - (tdow===0?6:tdow-1));
+  ui.weekOffset = Math.round((targetMon - todayMon) / (7*86400000));
+  if (ui.calView === 'day') { renderWeekStrip(); renderTimeline(); updateNavLabel(); }
+}
+function selectPitch(i) { ui.selectedPitch = i; ui.selectedSection = 'full'; render(); }
+
+// ══ SETTINGS ═════════════════════════════════════════════════════════
+function saveSetting(key, val) {
+  settings[key] = val;
+  localStorage.setItem('pb_settings', JSON.stringify(settings));
+  if (settingsRef) settingsRef.update({ [key]: val });
+  if (key === 'clubName') updateHeaderClub();
+}
+
+function addPitch() {
+  const name = prompt('New pitch name:');
+  if (!name || !name.trim()) return;
+  settings.pitches = [...settings.pitches, name.trim()];
+  saveSetting('pitches', settings.pitches);
+  renderSettings(); renderPitchTabs();
+}
+
+function removePitch(i) {
+  if (settings.pitches.length <= 1) { showToast('Need at least one pitch'); return; }
+  if (!confirm(`Remove "${settings.pitches[i]}"?`)) return;
+  settings.pitches.splice(i, 1);
+  if (ui.selectedPitch >= settings.pitches.length) ui.selectedPitch = 0;
+  saveSetting('pitches', settings.pitches);
+  renderSettings(); renderPitchTabs();
+}
+
+function renamePitch(i, val) {
+  if (!val.trim()) return;
+  settings.pitches[i] = val.trim();
+  saveSetting('pitches', settings.pitches);
+  renderPitchTabs();
+}
+
+function clearOldBookings() {
+  const cutoffStr = new Date(Date.now() - 30*24*60*60*1000).toISOString().slice(0,10);
+  const updates = {};
+  let count = 0;
+  Object.entries(liveBookings).forEach(([id, b]) => { if (b.date < cutoffStr) { updates[id] = null; count++; } });
+  if (!count) { showToast('No old bookings to clear'); return; }
+  if (!confirm(`Remove ${count} bookings older than 30 days?`)) return;
+  bookingsRef.update(updates).then(() => showToast(`Cleared ${count} old bookings`));
+}
+
+function renderSettings() {
+  document.getElementById('settingClubName').value = settings.clubName || '';
+  document.getElementById('settingUserName').value = settings.userName || '';
+  document.getElementById('pitchSettingsList').innerHTML = settings.pitches.map((p, i) =>
+    `<div class="settings-row">
+      <div class="settings-icon">🟩</div>
+      <div class="settings-text"><input class="settings-input" value="${p}" placeholder="Pitch name" onchange="renamePitch(${i},this.value)"></div>
+      ${settings.pitches.length > 1 ? `<button onclick="removePitch(${i})" style="background:none;border:none;color:var(--danger);font-size:22px;cursor:pointer;padding:0 6px">×</button>` : ''}
+    </div>`
+  ).join('');
+}
+
+// ══ OVERVIEW ═════════════════════════════════════════════════════════
+
+// ══ ICON HELPER ══════════════════════════════════════════════════════
+function bookingIcon(b) {
+  const sport = b.sport || '';
+  if (sport === 'Hurling' || sport === 'Camogie') return '🏑';
+  if (sport === 'Football' || sport === 'Ladies Football') return '⚽';
+  if (b.type === 'Match') return '🏆';
+  if (b.type === 'Blitz') return '🏅';
+  return '📋';
+}
+function renderStats() {
+  const all = Object.values(liveBookings);
+  const today = todayStr();
+  const weekDks = getWeekDates(0).map(dateKey);
+  const upcoming = all.filter(b => b.date >= today).length;
+  const thisWeek = all.filter(b => weekDks.includes(b.date)).length;
+  const typeCount = {};
+  all.forEach(b => { typeCount[b.type] = (typeCount[b.type]||0)+1; });
+  const top = Object.entries(typeCount).sort((a,b) => b[1]-a[1])[0];
+
+  document.getElementById('statsGrid').innerHTML = `
+    <div class="stat-card"><div class="stat-value">${upcoming}</div><div class="stat-label">Upcoming</div></div>
+    <div class="stat-card"><div class="stat-value">${thisWeek}</div><div class="stat-label">This week</div></div>
+    <div class="stat-card"><div class="stat-value">${all.length}</div><div class="stat-label">All bookings</div></div>
+    <div class="stat-card"><div class="stat-value">${top?top[0]:'—'}</div><div class="stat-label">Most booked</div></div>
+  `;
+
+  const list = all.filter(b => b.date >= today).sort((a,b) => (a.date + String(a.startMins).padStart(4,'0')).localeCompare(b.date + String(b.startMins).padStart(4,'0'))).slice(0, 10);
+  document.getElementById('recentBookings').innerHTML = list.length
+    ? `<div class="recent-card">${list.map(b => {
+        const d = new Date(b.date+'T12:00:00');
+        const pName = settings.pitches[b.pitch] || 'Pitch';
+        const secLabel = b.section === 'north' ? ' · Top Half' : b.section === 'south' ? ' · Bottom Half' : '';
+        const icon = bookingIcon(b);
+        return `<div class="recent-row" onclick="jumpTo('${b.date}',${b.pitch},'${b.id}')">
+          <div class="recent-icon">${icon}</div>
+          <div>
+            <div class="recent-main">${b.team} · ${b.type}${b.sport && b.sport !== 'Other' ? ' · ' + b.sport : ''}</div>
+            <div class="recent-sub">${DAYS_S[d.getDay()]} ${d.getDate()} ${MONTHS_S[d.getMonth()]} · ${minsToStr(b.startMins)}–${minsToStr(b.startMins+b.durMins)} · ${pName}${secLabel}</div>
+          </div>
+        </div>`;
+      }).join('')}</div>`
+    : `<p style="color:var(--text-muted);font-size:14px;text-align:center;padding:20px 0">No upcoming bookings</p>`;
+}
+
+function jumpTo(date, pitch, id) {
+  ui.selectedDate = date; ui.selectedPitch = pitch;
+  const d = new Date(date+'T12:00:00'), today = new Date();
+  const todayMon = new Date(today); const dow = today.getDay();
+  todayMon.setDate(today.getDate() - (dow===0?6:dow-1));
+  const targetMon = new Date(d); const tdow = d.getDay();
+  targetMon.setDate(d.getDate() - (tdow===0?6:tdow-1));
+  ui.weekOffset = Math.round((targetMon - todayMon) / (7*86400000));
+  ui.calView = 'day';
+  switchTab('calendar');
+  switchCalView('day');
+  setTimeout(() => showDetail(id), 120);
+}
+
+// ══ UTILS ════════════════════════════════════════════════════════════
+function openModal(id) { document.getElementById(id).classList.remove('hidden'); document.body.style.overflow = 'hidden'; }
+function closeModal(id) { document.getElementById(id).classList.add('hidden'); document.body.style.overflow = ''; }
+document.querySelectorAll('.modal-overlay').forEach(el => el.addEventListener('click', e => { if (e.target === el) closeModal(el.id); }));
+
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+function switchTab(tab) {
+  ui.currentTab = tab;
+  ['calendar','stats','settings'].forEach(t => {
+    document.getElementById(`${t}View`).style.display = t===tab?'block':'none';
+    document.getElementById(`tab-${t}`).classList.toggle('active', t===tab);
+  });
+  document.getElementById('weekNav').style.display = tab==='calendar'?'flex':'none';
+  document.getElementById('pitchTabsBar').style.display = tab==='calendar'?'block':'none';
+  if (tab!=='calendar') document.getElementById('sectionBar').classList.remove('visible');
+  document.getElementById('fabBtn').style.display = tab==='calendar'&&ui.calView==='day'?'flex':'none';
+  if (tab==='stats') renderStats();
+  if (tab==='settings') renderSettings();
+  if (tab==='calendar') render();
+}
+
+// ══ INIT ══════════════════════════════════════════════════════════════
+// Ensure day/week/month view divs are in correct initial state
+document.getElementById('weekView').style.display = 'none';
+document.getElementById('monthView').style.display = 'none';
+
+// Show SDK warning banner if Firebase didn't load (e.g. opened as file:// or no internet)
+window.addEventListener('load', () => {
+  if (typeof firebase === 'undefined') {
+    const w = document.getElementById('sdkWarning');
+    if (w) w.style.display = 'block';
+  }
+});
+
+checkSetup();
+</script>
+</body>
+</html>
