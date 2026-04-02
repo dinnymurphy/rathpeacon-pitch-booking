@@ -762,15 +762,6 @@ function maxDurFrom(dateStr, pitchIdx, startMins) {
   return max;
 }
 
-// ══ SETUP ════════════════════════════════════════════════════════════
-function checkSetup() {
-  const cfg = JSON.parse(localStorage.getItem('pb_config') || 'null');
-  if (cfg && cfg.apiKey && cfg.databaseURL) {
-    document.getElementById('setupScreen').classList.add('hidden');
-    initFirebase(cfg);
-  }
-}
-
 // ══ HARDCODED CONFIG ════════════════════════════════════════════════
 const FIREBASE_CONFIG = {
   apiKey:      "AIzaSyBxCGg9fhRADlr1pZEBs_SpudXmE_M0Vms",
