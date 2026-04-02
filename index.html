@@ -788,12 +788,20 @@ function showSetupError(msg) {
 }
 
 function checkSetup() {
-  // Check if user has already entered their name
   const saved = localStorage.getItem('pb_username');
   if (saved) {
     settings.userName = saved;
     document.getElementById('setupScreen').classList.add('hidden');
-    initFirebase(FIREBASE_CONFIG);
+    // Show app immediately, connect Firebase in background
+    showApp();
+    const tryConnect = () => {
+      if (typeof firebase !== 'undefined') {
+        initFirebase(FIREBASE_CONFIG);
+      } else {
+        setTimeout(tryConnect, 200);
+      }
+    };
+    tryConnect();
   } else {
     document.getElementById('setupScreen').style.display = 'flex';
   }
@@ -803,21 +811,28 @@ function completeSetup() {
   const userName = document.getElementById('cfg_userName').value.trim();
   if (!userName) { showSetupError('Please enter your name'); return; }
 
-  if (typeof firebase === 'undefined') {
-    showSetupError('Could not load — make sure you are online and using Safari or Chrome.');
-    return;
-  }
-
   settings.userName = userName;
   settings.clubName = 'Rathpeacon GAA';
   localStorage.setItem('pb_username', userName);
   localStorage.setItem('pb_settings', JSON.stringify(settings));
 
-  const btn = document.getElementById('connectBtn');
-  if (btn) { btn.disabled = true; btn.textContent = 'Connecting…'; }
-
+  // Hide setup and show app immediately — don't wait for Firebase
   document.getElementById('setupScreen').classList.add('hidden');
-  initFirebase(FIREBASE_CONFIG);
+  showApp();
+
+  // Connect Firebase in background — UI already visible
+  if (typeof firebase !== 'undefined') {
+    initFirebase(FIREBASE_CONFIG);
+  } else {
+    // SDK still loading — wait for it
+    const poll = setInterval(() => {
+      if (typeof firebase !== 'undefined') {
+        clearInterval(poll);
+        initFirebase(FIREBASE_CONFIG);
+      }
+    }, 200);
+    setTimeout(() => clearInterval(poll), 10000);
+  }
 }
 
 function resetSetup() {
@@ -848,7 +863,6 @@ function initFirebase(cfg) {
       liveBookings = snap.val() || {};
       ui.loading = false;
       setSyncStatus('live');
-      if (document.getElementById('appShell').style.display === 'none') showApp();
       render();
     }, (err) => {
       clearTimeout(timeout);
