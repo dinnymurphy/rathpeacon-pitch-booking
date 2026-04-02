@@ -454,7 +454,7 @@
         <div class="section-title">Club</div>
         <div class="settings-card">
           <div class="settings-row">
-            <div class="settings-icon">🏛️</div>
+            <div class="settings-icon">👕</div>
             <div class="settings-text">
               <div class="settings-label">Club name</div>
               <input class="settings-input" id="settingClubName" onchange="saveSetting('clubName',this.value)">
@@ -545,9 +545,9 @@
       <div class="form-group">
         <label class="form-label">Sport</label>
         <div class="chip-group">
-          <div class="chip selected" data-group="sport" data-val="Football" onclick="selectChip(this,'sport')">⚽ Football</div>
+          <div class="chip selected" data-group="sport" data-val="Football" onclick="selectChip(this,'sport')">🏐 Football</div>
           <div class="chip" data-group="sport" data-val="Hurling" onclick="selectChip(this,'sport')">🏑 Hurling</div>
-          <div class="chip" data-group="sport" data-val="Ladies Football" onclick="selectChip(this,'sport')">⚽ Ladies Football</div>
+          <div class="chip" data-group="sport" data-val="Ladies Football" onclick="selectChip(this,'sport')">🏐 Ladies Football</div>
           <div class="chip" data-group="sport" data-val="Camogie" onclick="selectChip(this,'sport')">🏑 Camogie</div>
           <div class="chip" data-group="sport" data-val="Other" onclick="selectChip(this,'sport')">Other</div>
         </div>
@@ -1513,7 +1513,7 @@ function renderSettings() {
 function bookingIcon(b) {
   const sport = b.sport || '';
   if (sport === 'Hurling' || sport === 'Camogie') return '🏑';
-  if (sport === 'Football' || sport === 'Ladies Football') return '⚽';
+  if (sport === 'Football' || sport === 'Ladies Football') return '🏐';
   if (b.type === 'Match') return '🥅';
   if (b.type === 'Blitz') return '🏅';
   return '📋';
