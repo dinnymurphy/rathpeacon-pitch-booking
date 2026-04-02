@@ -161,6 +161,29 @@
   .spinner { width: 28px; height: 28px; border: 3px solid var(--border); border-top-color: var(--blue-dark); border-radius: 50%; animation: spin 0.7s linear infinite; margin: 0 auto 12px; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
+
+  /* ── REPEAT BOOKING ── */
+  .repeat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .repeat-chip { padding: 9px 4px; text-align: center; border-radius: var(--radius-sm); border: 1.5px solid var(--border); font-size: 13px; font-weight: 500; cursor: pointer; background: white; transition: all 0.12s; }
+  .repeat-chip.selected { background: var(--blue-dark); border-color: var(--blue-dark); color: white; }
+  .repeat-weeks-row { display: flex; align-items: center; gap: 10px; margin-top: 10px; display: none; }
+  .repeat-weeks-row.visible { display: flex; }
+  .repeat-weeks-row label { font-size: 13px; color: var(--text-muted); white-space: nowrap; }
+  .repeat-weeks-row input { width: 64px; padding: 8px 10px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); font-size: 15px; font-family: inherit; text-align: center; }
+  .repeat-preview { font-size: 12px; color: var(--text-muted); margin-top: 8px; line-height: 1.5; }
+
+  /* ── DIGEST / EXPORT BUTTONS ── */
+  .action-row { display: flex; gap: 10px; margin-bottom: 16px; }
+  .action-btn { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 14px 8px; background: white; border: 1.5px solid var(--border); border-radius: var(--radius); cursor: pointer; font-family: inherit; transition: all 0.12s; }
+  .action-btn:active { background: var(--blue-pale); border-color: var(--blue-light); }
+  .action-btn-icon { font-size: 24px; }
+  .action-btn-label { font-size: 12px; font-weight: 600; color: var(--text-main); text-align: center; }
+  .action-btn-sub { font-size: 11px; color: var(--text-muted); text-align: center; }
+
+  /* ── DIGEST MODAL ── */
+  .digest-body { padding: 20px; }
+  .digest-text { background: var(--off-white); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px; font-size: 13px; line-height: 1.7; white-space: pre-wrap; font-family: inherit; color: var(--text-main); min-height: 200px; max-height: 55vh; overflow-y: auto; }
+  .digest-footer { padding: 0 20px 20px; display: flex; gap: 10px; }
   /* ── VIEW TOGGLE ── */
   .view-toggle-bar { background: white; border-bottom: 1px solid var(--border); display: flex; justify-content: center; padding: 8px 16px; }
   .view-toggle { display: flex; background: var(--off-white); border-radius: 8px; padding: 3px; gap: 2px; }
@@ -433,6 +456,18 @@
   <div id="statsView" style="display:none">
     <div class="main">
       <div class="stats-grid" id="statsGrid"></div>
+      <div class="action-row">
+        <button class="action-btn" onclick="openDigest()">
+          <div class="action-btn-icon">📋</div>
+          <div class="action-btn-label">Weekly Digest</div>
+          <div class="action-btn-sub">Share to WhatsApp</div>
+        </button>
+        <button class="action-btn" onclick="exportCSV()">
+          <div class="action-btn-icon">📥</div>
+          <div class="action-btn-label">Export CSV</div>
+          <div class="action-btn-sub">Open in Excel</div>
+        </button>
+      </div>
       <div class="section-title">Upcoming bookings</div>
       <div id="recentBookings"></div>
     </div>
@@ -559,10 +594,26 @@
         <input type="text" class="form-control" id="bookNotes" placeholder="Any extra info…">
       </div>
 
+      <div class="form-group">
+        <label class="form-label">Repeat</label>
+        <div class="repeat-grid">
+          <div class="repeat-chip selected" data-group="repeat" data-val="none"   onclick="selectRepeat(this,'none')">Once</div>
+          <div class="repeat-chip"          data-group="repeat" data-val="weekly"  onclick="selectRepeat(this,'weekly')">Weekly</div>
+          <div class="repeat-chip"          data-group="repeat" data-val="fort"    onclick="selectRepeat(this,'fort')">Fortnightly</div>
+          <div class="repeat-chip"          data-group="repeat" data-val="monthly" onclick="selectRepeat(this,'monthly')">Monthly</div>
+        </div>
+        <div class="repeat-weeks-row" id="repeatWeeksRow">
+          <label>For</label>
+          <input type="number" id="repeatCount" value="4" min="2" max="52" oninput="updateRepeatPreview()">
+          <label>occurrences</label>
+        </div>
+        <div class="repeat-preview" id="repeatPreview"></div>
+      </div>
+
     </div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('bookModal')">Cancel</button>
-      <button class="btn btn-primary" onclick="confirmBooking()">Confirm Booking</button>
+      <button class="btn btn-primary" id="confirmBookingBtn" onclick="confirmBooking()">Confirm Booking</button>
     </div>
   </div>
 </div>
@@ -584,6 +635,25 @@
 </div>
 
 <button class="fab" id="fabBtn" onclick="openBookModal(null)" style="display:none">+</button>
+
+<!-- DIGEST MODAL -->
+<div class="modal-overlay hidden" id="digestModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-title">📋 Weekly Digest</div>
+      <button class="modal-close" onclick="closeModal('digestModal')">✕</button>
+    </div>
+    <div class="digest-body">
+      <div class="digest-text" id="digestText"></div>
+    </div>
+    <div class="digest-footer">
+      <button class="btn btn-secondary" onclick="closeModal('digestModal')">Close</button>
+      <button class="btn btn-primary" onclick="copyDigest()">Copy Text</button>
+      <button class="btn btn-primary" style="background:#25d366;border:none" onclick="shareWhatsApp()">WhatsApp</button>
+    </div>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 
 <nav class="bottom-nav" id="bottomNav" style="display:none">
@@ -1198,6 +1268,9 @@ function openBookModal(preselectedStartMins) {
   document.getElementById('bookNotes').value = '';
   document.querySelectorAll('[data-group="type"]').forEach(c => c.classList.toggle('selected', c.dataset.val === 'Training'));
   document.querySelectorAll('[data-group="sport"]').forEach(c => c.classList.toggle('selected', c.dataset.val === 'Football'));
+  document.querySelectorAll('[data-group="repeat"]').forEach(c => c.classList.toggle('selected', c.dataset.val === 'none'));
+  document.getElementById('repeatWeeksRow').classList.remove('visible');
+  document.getElementById('repeatPreview').textContent = '';
   renderStartTimeGrid();
   renderDurGrid();
   updateTimeSummary();
@@ -1302,8 +1375,31 @@ function confirmBooking() {
     createdAt: new Date().toISOString()
   };
 
-  bookingsRef.child(id).set(booking)
-    .then(() => { closeModal('bookModal'); showToast('Booking confirmed ✓'); })
+  const repeatType = getRepeatVal();
+  const repeatCount = repeatType === 'none' ? 1 : (parseInt(document.getElementById('repeatCount').value) || 4);
+  const allDates = getRepeatDates(ui.selectedDate, repeatType, repeatCount);
+
+  // Check conflicts on all dates
+  for (const dk of allDates) {
+    if (getOverlappingBooking(dk, ui.selectedPitch, ui.bookStartMins, ui.bookDurMins, sec)) {
+      showToast(`Conflict on ${dk} — fix before repeating`);
+      return;
+    }
+  }
+
+  // Write all bookings
+  const updates = {};
+  allDates.forEach(dk => {
+    const rid = Date.now().toString(36) + Math.random().toString(36).slice(2,5);
+    updates[rid] = { ...booking, id: rid, date: dk };
+  });
+
+  bookingsRef.update(updates)
+    .then(() => {
+      closeModal('bookModal');
+      const msg = allDates.length > 1 ? `${allDates.length} bookings confirmed ✓` : 'Booking confirmed ✓';
+      showToast(msg);
+    })
     .catch(() => showToast('Save failed — check connection'));
 }
 
@@ -1480,6 +1576,150 @@ function jumpTo(date, pitch, id) {
   setTimeout(() => showDetail(id), 120);
 }
 
+
+// ══ REPEAT BOOKING ═══════════════════════════════════════════════════
+function selectRepeat(el, val) {
+  document.querySelectorAll('[data-group="repeat"]').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  const row = document.getElementById('repeatWeeksRow');
+  row.classList.toggle('visible', val !== 'none');
+  updateRepeatPreview();
+}
+
+function getRepeatVal() {
+  return document.querySelector('[data-group="repeat"].selected')?.dataset.val || 'none';
+}
+
+function getRepeatDates(baseDate, repeatType, count) {
+  if (repeatType === 'none') return [baseDate];
+  const dates = [baseDate];
+  const d = new Date(baseDate + 'T12:00:00');
+  const gap = repeatType === 'weekly' ? 7 : repeatType === 'fort' ? 14 : 30;
+  for (let i = 1; i < count; i++) {
+    if (repeatType === 'monthly') {
+      const next = new Date(d);
+      next.setMonth(next.getMonth() + i);
+      dates.push(next.toISOString().slice(0,10));
+    } else {
+      const next = new Date(d);
+      next.setDate(next.getDate() + gap * i);
+      dates.push(next.toISOString().slice(0,10));
+    }
+  }
+  return dates;
+}
+
+function updateRepeatPreview() {
+  const repeatType = getRepeatVal();
+  const count = parseInt(document.getElementById('repeatCount').value) || 4;
+  const preview = document.getElementById('repeatPreview');
+  if (repeatType === 'none') { preview.textContent = ''; return; }
+  const dates = getRepeatDates(ui.selectedDate, repeatType, Math.min(count, 4));
+  const more = count > 4 ? ` + ${count - 4} more` : '';
+  preview.textContent = 'Will book: ' + dates.map(dk => {
+    const d = new Date(dk + 'T12:00:00');
+    return `${DAYS_S[d.getDay()]} ${d.getDate()} ${MONTHS_S[d.getMonth()]}`;
+  }).join(', ') + more;
+}
+
+// ══ WEEKLY DIGEST ════════════════════════════════════════════════════
+function openDigest() {
+  const text = generateDigest();
+  document.getElementById('digestText').textContent = text;
+  openModal('digestModal');
+}
+
+function generateDigest() {
+  const today = todayStr();
+  const d = new Date();
+  // Get next 7 days
+  const days = Array.from({length: 7}, (_, i) => {
+    const day = new Date(d);
+    day.setDate(d.getDate() + i);
+    return day.toISOString().slice(0,10);
+  });
+
+  const clubName = settings.clubName || 'Club';
+  let lines = [];
+  lines.push(`📅 ${clubName} — Pitch Bookings`);
+  const startD = new Date(days[0]+'T12:00:00'), endD = new Date(days[6]+'T12:00:00');
+  lines.push(`${startD.getDate()} ${MONTHS_S[startD.getMonth()]} – ${endD.getDate()} ${MONTHS_S[endD.getMonth()]} ${endD.getFullYear()}`);
+  lines.push('');
+
+  let hasAny = false;
+  days.forEach(dk => {
+    const dayBookings = Object.values(liveBookings)
+      .filter(b => b.date === dk)
+      .sort((a, b) => a.startMins - b.startMins);
+    if (dayBookings.length === 0) return;
+    hasAny = true;
+    const dObj = new Date(dk + 'T12:00:00');
+    lines.push(`${DAYS_FULL[dObj.getDay()]} ${dObj.getDate()} ${MONTHS_S[dObj.getMonth()]}`);
+    dayBookings.forEach(b => {
+      const pitch = settings.pitches[b.pitch] || 'Pitch';
+      const secLabel = b.section === 'north' ? ' (Top Half)' : b.section === 'south' ? ' (Bottom Half)' : '';
+      const sport = b.sport && b.sport !== 'Other' ? ` · ${b.sport}` : '';
+      lines.push(`  ${bookingIcon(b)} ${minsToStr(b.startMins)}–${minsToStr(b.startMins+b.durMins)}  ${b.team} · ${b.type}${sport}  |  ${pitch}${secLabel}`);
+    });
+    lines.push('');
+  });
+
+  if (!hasAny) lines.push('No bookings this week.');
+  lines.push('— Sent via Rathpeacon Pitch Booking App');
+  return lines.join('\n');
+}
+
+function copyDigest() {
+  const text = document.getElementById('digestText').textContent;
+  navigator.clipboard.writeText(text).then(() => showToast('Copied to clipboard ✓')).catch(() => {
+    // Fallback
+    const ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+    showToast('Copied ✓');
+  });
+}
+
+function shareWhatsApp() {
+  const text = document.getElementById('digestText').textContent;
+  window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
+}
+
+// ══ EXPORT CSV ═══════════════════════════════════════════════════════
+function exportCSV() {
+  const all = Object.values(liveBookings).sort((a,b) => (a.date+String(a.startMins).padStart(4,'0')).localeCompare(b.date+String(b.startMins).padStart(4,'0')));
+  const headers = ['Date','Day','Start','End','Duration','Pitch','Section','Team','Type','Sport','Booked By','Notes'];
+  const rows = all.map(b => {
+    const d = new Date(b.date+'T12:00:00');
+    const pitch = settings.pitches[b.pitch] || 'Pitch';
+    const sec = b.section === 'north' ? 'Top Half' : b.section === 'south' ? 'Bottom Half' : 'Full';
+    return [
+      b.date,
+      DAYS_FULL[d.getDay()],
+      minsToStr(b.startMins),
+      minsToStr(b.startMins + b.durMins),
+      durLabel(b.durMins),
+      pitch,
+      sec,
+      b.team,
+      b.type,
+      b.sport || '',
+      b.user,
+      b.notes || ''
+    ].map(v => `"${String(v).replace(/"/g,'""')}"`).join(',');
+  });
+
+  const csv = [headers.join(','), ...rows].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${(settings.clubName||'Club').replace(/\s+/g,'-')}-Bookings-${todayStr()}.csv`;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('CSV downloaded ✓');
+}
 // ══ UTILS ════════════════════════════════════════════════════════════
 function openModal(id) { document.getElementById(id).classList.remove('hidden'); document.body.style.overflow = 'hidden'; }
 function closeModal(id) { document.getElementById(id).classList.add('hidden'); document.body.style.overflow = ''; }
