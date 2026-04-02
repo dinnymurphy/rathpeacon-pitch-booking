@@ -1409,7 +1409,7 @@ function showDetail(id) {
     <div class="detail-row"><div class="detail-icon">👥</div><div><div class="detail-label">Team / Group</div><div class="detail-value">${b.team}</div></div></div>
     <div class="detail-row"><div class="detail-icon">📅</div><div><div class="detail-label">Date</div><div class="detail-value">${DAYS_FULL[d.getDay()]}, ${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}</div></div></div>
     <div class="detail-row"><div class="detail-icon">🕐</div><div><div class="detail-label">Time</div><div class="detail-value">${minsToStr(b.startMins)} – ${minsToStr(endMins)} (${durLabel(b.durMins)})</div></div></div>
-    <div class="detail-row"><div class="detail-icon">🏟️</div><div><div class="detail-label">Pitch</div><div class="detail-value">${pitch}${b.section && b.section !== 'full' ? ' · ' + (b.section === 'north' ? 'Top Half' : 'Bottom Half') : ''}</div></div></div>
+    <div class="detail-row"><div class="detail-icon">🌐</div><div><div class="detail-label">Pitch</div><div class="detail-value">${pitch}${b.section && b.section !== 'full' ? ' · ' + (b.section === 'north' ? 'Top Half' : 'Bottom Half') : ''}</div></div></div>
     <div class="detail-row"><div class="detail-icon">👤</div><div><div class="detail-label">Booked by</div><div class="detail-value">${b.user}</div></div></div>
     ${b.sport ? `<div class="detail-row"><div class="detail-icon">${bookingIcon(b)}</div><div><div class="detail-label">Sport</div><div class="detail-value">${b.sport}</div></div></div>` : ''}
     ${b.notes ? `<div class="detail-row"><div class="detail-icon">📝</div><div><div class="detail-label">Notes</div><div class="detail-value">${b.notes}</div></div></div>` : ''}
@@ -1514,7 +1514,7 @@ function bookingIcon(b) {
   const sport = b.sport || '';
   if (sport === 'Hurling' || sport === 'Camogie') return '🏑';
   if (sport === 'Football' || sport === 'Ladies Football') return '⚽';
-  if (b.type === 'Match') return '🏆';
+  if (b.type === 'Match') return '🥅';
   if (b.type === 'Blitz') return '🏅';
   return '📋';
 }
