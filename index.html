@@ -667,9 +667,15 @@ const DAYS_S      = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 let db = null, bookingsRef = null, settingsRef = null;
 let liveBookings = {};
 
-let settings = JSON.parse(localStorage.getItem('pb_settings') || 'null') || {
+const DEFAULT_SETTINGS = {
   clubName: 'Rathpeacon GAA', pitches: ['Main Pitch', 'Back Pitch', 'Hall'], splitPitches: [0], userName: ''
 };
+let settings = { ...DEFAULT_SETTINGS, ...( JSON.parse(localStorage.getItem('pb_settings') || 'null') || {} ) };
+// Always ensure pitches is a valid array
+if (!Array.isArray(settings.pitches) || settings.pitches.length === 0) {
+  settings.pitches = DEFAULT_SETTINGS.pitches;
+  settings.splitPitches = DEFAULT_SETTINGS.splitPitches;
+}
 
 let ui = {
   weekOffset: 0,
@@ -783,13 +789,19 @@ function checkSetup() {
   if (saved) {
     settings.userName = saved;
     document.getElementById('setupScreen').classList.add('hidden');
-    // Show app immediately, connect Firebase in background
-    showApp();
+    try {
+      showApp();
+    } catch(e) {
+      // Reset and let them re-enter name
+      localStorage.removeItem('pb_username');
+      document.getElementById('setupScreen').classList.remove('hidden');
+      return;
+    }
     const tryConnect = () => {
       if (typeof firebase !== 'undefined') {
         initFirebase(FIREBASE_CONFIG);
       } else {
-        setTimeout(tryConnect, 200);
+        setTimeout(tryConnect, 300);
       }
     };
     tryConnect();
@@ -807,23 +819,27 @@ function completeSetup() {
   localStorage.setItem('pb_username', userName);
   localStorage.setItem('pb_settings', JSON.stringify(settings));
 
-  // Hide setup and show app immediately — don't wait for Firebase
+  // Hide setup and show app
   document.getElementById('setupScreen').classList.add('hidden');
-  showApp();
+
+  try {
+    showApp();
+  } catch(appErr) {
+    // If showApp fails, show a recoverable error
+    document.getElementById('setupScreen').classList.remove('hidden');
+    showSetupError('App failed to load: ' + appErr.message + '. Please refresh and try again.');
+    return;
+  }
 
   // Connect Firebase in background — UI already visible
-  if (typeof firebase !== 'undefined') {
-    initFirebase(FIREBASE_CONFIG);
-  } else {
-    // SDK still loading — wait for it
-    const poll = setInterval(() => {
-      if (typeof firebase !== 'undefined') {
-        clearInterval(poll);
-        initFirebase(FIREBASE_CONFIG);
-      }
-    }, 200);
-    setTimeout(() => clearInterval(poll), 10000);
-  }
+  const tryConnect = () => {
+    if (typeof firebase !== 'undefined') {
+      initFirebase(FIREBASE_CONFIG);
+    } else {
+      setTimeout(tryConnect, 300);
+    }
+  };
+  tryConnect();
 }
 
 function resetSetup() {
@@ -951,14 +967,15 @@ function navNext() {
 }
 
 function renderPitchTabs() {
-  document.getElementById('pitchTabsInner').innerHTML = settings.pitches.map((p, i) =>
+  const pitches = settings.pitches || ['Main Pitch'];
+  document.getElementById('pitchTabsInner').innerHTML = pitches.map((p, i) =>
     `<div class="pitch-tab ${i===ui.selectedPitch?'active':''}" onclick="selectPitch(${i})">${p}</div>`
   ).join('');
   renderSectionBar();
 }
 
 function renderSectionBar() {
-  const pitchName = (settings.pitches[ui.selectedPitch] || '').toLowerCase();
+  const pitchName = ((settings.pitches || [])[ui.selectedPitch] || '').toLowerCase();
   const isSplit = pitchName.includes('main') || (settings.splitPitches || []).includes(ui.selectedPitch);
   const bar = document.getElementById('sectionBar');
   if (!isSplit) { bar.classList.remove('visible'); return; }
