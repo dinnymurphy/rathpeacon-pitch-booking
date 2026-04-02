@@ -833,37 +833,46 @@ function resetSetup() {
 }
 
 // ══ FIREBASE ═════════════════════════════════════════════════════════
+function setSyncStatus(state, msg) {
+  const bar = document.getElementById('syncBar');
+  if (!bar) return;
+  const dot = bar.querySelector('.sync-dot');
+  const msgEl = document.getElementById('syncMsg');
+  if (state === 'live') {
+    bar.classList.add('visible'); bar.classList.remove('error');
+    if (dot) dot.style.animation = '';
+    if (msgEl) msgEl.textContent = 'Live — all managers see this';
+    setTimeout(() => bar.classList.remove('visible'), 3000);
+  } else if (state === 'connecting') {
+    bar.classList.add('visible'); bar.classList.remove('error');
+    if (msgEl) msgEl.textContent = 'Connecting…';
+  } else {
+    bar.classList.add('visible', 'error');
+    if (dot) dot.style.animation = 'none';
+    if (msgEl) msgEl.textContent = msg || 'Connection error';
+  }
+}
+
 function initFirebase(cfg) {
   try {
-    const existingApp = firebase.apps && firebase.apps.length ? firebase.apps[0] : null;
-    const app = existingApp || firebase.initializeApp(cfg);
+    let app;
+    try { app = firebase.initializeApp(cfg); }
+    catch(e2) { app = firebase.app(); }
     db = firebase.database(app);
     bookingsRef = db.ref('bookings');
     settingsRef = db.ref('settings');
-
-    let connected = false;
-    const timeout = setTimeout(() => {
-      if (!connected) {
-        showToast('Connection slow — check your internet');
-      }
-    }, 8000);
+    setSyncStatus('connecting');
 
     bookingsRef.on('value', snap => {
-      connected = true;
-      clearTimeout(timeout);
       liveBookings = snap.val() || {};
       ui.loading = false;
       setSyncStatus('live');
       render();
-    }, (err) => {
-      clearTimeout(timeout);
-      showToast('Database error — check connection');
-    });
+    }, () => setSyncStatus('error', 'Database error — check Firebase Rules'));
 
     settingsRef.on('value', snap => {
       const r = snap.val();
       if (r) {
-        // Keep local userName, merge everything else from Firebase
         const localName = settings.userName;
         settings = {...settings, ...r};
         if (localName) settings.userName = localName;
@@ -872,15 +881,12 @@ function initFirebase(cfg) {
       }
     });
 
-    showApp();
-    setSyncStatus('connecting');
-
   } catch(e) {
-    showToast('Connection error: ' + e.message);
+    setSyncStatus('error', 'Connection failed');
+    showToast('Could not connect — check your internet');
   }
 }
 
-// ══ RENDER ═══════════════════════════════════════════════════════════
 // ══ RENDER ═══════════════════════════════════════════════════════════
 function showApp() {
   document.getElementById('appShell').style.display = 'block';
