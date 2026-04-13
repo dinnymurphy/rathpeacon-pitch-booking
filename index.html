@@ -521,6 +521,12 @@
     </div>
     <div class="modal-body">
 
+      <div class="form-group" id="locationFormGroup" style="display:none">
+        <label class="form-label">Pitch</label>
+        <div class="chip-group" id="pitchPickerChips"></div>
+        <div class="chip-group" id="sectionPickerChips" style="margin-top:8px"></div>
+      </div>
+
       <div class="form-group">
         <label class="form-label">Start time</label>
         <div class="start-time-grid" id="startTimeGrid"></div>
@@ -689,6 +695,8 @@ let ui = {
   detailId: null,
   editingId: null,
   editMode: null,
+  editPitch: null,
+  editSection: null,
   bookStartMins: null,
   bookDurMins: null,
   loading: true
@@ -1254,11 +1262,54 @@ function formatWeek(dates) {
 }
 
 // ══ BOOKING MODAL ═════════════════════════════════════════════════════
+function renderLocationPicker(selectedPitch, selectedSection) {
+  // Pitch chips
+  document.getElementById('pitchPickerChips').innerHTML = (settings.pitches || []).map((p, i) =>
+    `<div class="chip ${i === selectedPitch ? 'selected' : ''}" onclick="selectEditPitch(${i})">${p}</div>`
+  ).join('');
+
+  // Section chips — only for pitches named "Main"
+  const pitchName = ((settings.pitches || [])[selectedPitch] || '').toLowerCase();
+  const isSplit = pitchName.includes('main');
+  const sectionEl = document.getElementById('sectionPickerChips');
+  if (isSplit) {
+    sectionEl.style.display = 'flex';
+    sectionEl.innerHTML = [
+      { key: 'full', label: 'Full Pitch' },
+      { key: 'north', label: 'Top Half' },
+      { key: 'south', label: 'Bottom Half' }
+    ].map(s =>
+      `<div class="chip ${s.key === selectedSection ? 'selected' : ''}" onclick="selectEditSection('${s.key}')">${s.label}</div>`
+    ).join('');
+  } else {
+    sectionEl.style.display = 'none';
+    sectionEl.innerHTML = '';
+    // Force section to full if pitch doesn't support halves
+    ui.editPitch = selectedPitch;
+    ui.editSection = 'full';
+  }
+}
+
+function selectEditPitch(i) {
+  ui.editPitch = i;
+  ui.editSection = 'full';
+  renderLocationPicker(i, 'full');
+  // Refresh time grid as availability changes per pitch
+  renderStartTimeGrid();
+  renderDurGrid();
+}
+
+function selectEditSection(sec) {
+  ui.editSection = sec;
+  renderLocationPicker(ui.editPitch, sec);
+}
+
 function openBookModal(preselectedStartMins) {
   ui.bookStartMins = preselectedStartMins !== null && preselectedStartMins !== undefined ? preselectedStartMins : null;
   ui.bookDurMins = null;
   const secLabels = { full: '', north: ' · Top Half', south: ' · Bottom Half' };
   document.getElementById('bookModalTitle').textContent = 'New Booking — ' + (settings.pitches[ui.selectedPitch] || 'Pitch') + (secLabels[ui.selectedSection] || '');
+  document.getElementById('locationFormGroup').style.display = 'none';
   document.getElementById('bookTeam').value = '';
   document.getElementById('bookUser').value = settings.userName || '';
   document.getElementById('bookNotes').value = '';
@@ -1469,8 +1520,12 @@ Tap Cancel to edit only this booking.`);
   ui.bookStartMins = b.startMins;
   ui.bookDurMins = b.durMins;
 
-  const secLabels = { full: '', north: ' · Top Half', south: ' · Bottom Half' };
-  document.getElementById('bookModalTitle').textContent = 'Edit Booking — ' + (settings.pitches[b.pitch] || 'Pitch') + (secLabels[ui.selectedSection] || '');
+  // Show location picker in edit mode
+  ui.editPitch = b.pitch;
+  ui.editSection = b.section || 'full';
+  document.getElementById('locationFormGroup').style.display = 'block';
+  renderLocationPicker(b.pitch, b.section || 'full');
+  document.getElementById('bookModalTitle').textContent = 'Edit Booking';
 
   // Fill form fields
   document.getElementById('bookTeam').value = b.team || '';
@@ -1510,11 +1565,15 @@ function saveEdit() {
   const notes = document.getElementById('bookNotes').value.trim();
   const sec = ui.selectedSection || 'full';
 
+  // Use the pitch/section from the location picker if in edit mode
+  const editPitch = ui.editPitch !== null ? ui.editPitch : ui.selectedPitch;
+  const editSection = ui.editSection || sec;
+
   const original = liveBookings[ui.editingId] || Object.values(liveBookings).find(x => x.id === ui.editingId);
   if (!original) { showToast('Booking not found'); return; }
 
   // Check for conflicts (excluding the booking(s) being edited)
-  if (getOverlappingBooking(original.date, original.pitch, ui.bookStartMins, ui.bookDurMins, sec, original.id)) {
+  if (getOverlappingBooking(original.date, editPitch, ui.bookStartMins, ui.bookDurMins, editSection, original.id)) {
     showToast('Time conflict — choose another slot');
     return;
   }
@@ -1526,12 +1585,12 @@ function saveEdit() {
     const futureSeries = Object.values(liveBookings)
       .filter(x => x.seriesId === original.seriesId && x.date >= original.date);
     futureSeries.forEach(x => {
-      updates[x.id] = { ...x, team, user, type, sport, notes, section: sec,
+      updates[x.id] = { ...x, team, user, type, sport, notes, pitch: editPitch, section: editSection,
         startMins: ui.bookStartMins, durMins: ui.bookDurMins };
     });
   } else {
     // Single booking edit
-    updates[original.id] = { ...original, team, user, type, sport, notes, section: sec,
+    updates[original.id] = { ...original, team, user, type, sport, notes, pitch: editPitch, section: editSection,
       startMins: ui.bookStartMins, durMins: ui.bookDurMins };
   }
 
@@ -1542,8 +1601,7 @@ function saveEdit() {
       const btn = document.getElementById('confirmBookingBtn');
       btn.textContent = 'Confirm Booking';
       btn.onclick = confirmBooking;
-      ui.editingId = null; ui.editMode = null;
-      const msg = ui.editMode === 'series' ? 'Series updated ✓' : 'Booking updated ✓';
+      ui.editingId = null; ui.editMode = null; ui.editPitch = null; ui.editSection = null;
       showToast('Booking updated ✓');
     })
     .catch(() => showToast('Save failed — check connection'));
@@ -1835,7 +1893,15 @@ function exportCSV() {
 }
 // ══ UTILS ════════════════════════════════════════════════════════════
 function openModal(id) { document.getElementById(id).classList.remove('hidden'); document.body.style.overflow = 'hidden'; }
-function closeModal(id) { document.getElementById(id).classList.add('hidden'); document.body.style.overflow = ''; }
+function closeModal(id) {
+  document.getElementById(id).classList.add('hidden'); document.body.style.overflow = '';
+  if (id === 'bookModal' && ui.editingId) {
+    const btn = document.getElementById('confirmBookingBtn');
+    if (btn) { btn.textContent = 'Confirm Booking'; btn.onclick = confirmBooking; }
+    ui.editingId = null; ui.editMode = null; ui.editPitch = null; ui.editSection = null;
+    document.getElementById('locationFormGroup').style.display = 'none';
+  }
+}
 document.querySelectorAll('.modal-overlay').forEach(el => el.addEventListener('click', e => { if (e.target === el) closeModal(el.id); }));
 
 let toastTimer;
