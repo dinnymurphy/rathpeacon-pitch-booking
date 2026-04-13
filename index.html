@@ -338,7 +338,7 @@
 
 <!-- ══ WELCOME ══════════════════════════════════════════════════════ -->
 <div id="setupScreen">
-  <div class="setup-logo">🌐</div>
+  <div class="setup-logo">🏟️</div>
   <div class="setup-title">Rathpeacon GAA</div>
   <div class="setup-sub">Pitch Booking — Management App</div>
 
@@ -454,7 +454,7 @@
         <div class="section-title">Club</div>
         <div class="settings-card">
           <div class="settings-row">
-            <div class="settings-icon">👕</div>
+            <div class="settings-icon">🏛️</div>
             <div class="settings-text">
               <div class="settings-label">Club name</div>
               <input class="settings-input" id="settingClubName" onchange="saveSetting('clubName',this.value)">
@@ -485,7 +485,7 @@
             </div>
           </div>
           <div class="settings-row">
-            <div class="settings-icon">🗓️</div>
+            <div class="settings-icon">🌞</div>
             <div class="settings-text">
               <div class="settings-label">Weekend hours (Sat–Sun)</div>
               <div style="color:var(--text-muted);font-size:13px;margin-top:4px">9:00 am – 10:00 pm</div>
@@ -545,9 +545,9 @@
       <div class="form-group">
         <label class="form-label">Sport</label>
         <div class="chip-group">
-          <div class="chip selected" data-group="sport" data-val="Football" onclick="selectChip(this,'sport')">🏐 Football</div>
+          <div class="chip selected" data-group="sport" data-val="Football" onclick="selectChip(this,'sport')">⚽ Football</div>
           <div class="chip" data-group="sport" data-val="Hurling" onclick="selectChip(this,'sport')">🏑 Hurling</div>
-          <div class="chip" data-group="sport" data-val="Ladies Football" onclick="selectChip(this,'sport')">🏐 Ladies Football</div>
+          <div class="chip" data-group="sport" data-val="Ladies Football" onclick="selectChip(this,'sport')">⚽ Ladies Football</div>
           <div class="chip" data-group="sport" data-val="Camogie" onclick="selectChip(this,'sport')">🏑 Camogie</div>
           <div class="chip" data-group="sport" data-val="Other" onclick="selectChip(this,'sport')">Other</div>
         </div>
@@ -601,9 +601,10 @@
       <button class="modal-close" onclick="closeModal('detailModal')">✕</button>
     </div>
     <div class="booking-detail" id="bookingDetail"></div>
-    <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="closeModal('detailModal')">Close</button>
-      <button class="btn btn-danger" id="cancelBookingBtn" onclick="cancelCurrentBooking()">Cancel Booking</button>
+    <div class="modal-footer" style="flex-wrap:wrap;gap:8px">
+      <button class="btn btn-secondary" onclick="closeModal('detailModal')" style="flex:1;min-width:80px">Close</button>
+      <button class="btn btn-primary" id="editBookingBtn" onclick="editCurrentBooking()" style="flex:1;min-width:80px">Edit</button>
+      <button class="btn btn-danger" id="cancelBookingBtn" onclick="cancelCurrentBooking()" style="flex:1 1 100%">Cancel Booking</button>
     </div>
   </div>
 </div>
@@ -686,6 +687,8 @@ let ui = {
   selectedSection: 'full',
   monthYear: { y: new Date().getFullYear(), m: new Date().getMonth() },
   detailId: null,
+  editingId: null,
+  editMode: null,
   bookStartMins: null,
   bookDurMins: null,
   loading: true
@@ -1169,8 +1172,8 @@ function renderTimeline() {
     })
     .sort((a, b) => a.startMins - b.startMins);
 
-  // Build a set of hours that are mid-booking (don't start here, just pass through)
-  // These rows are skipped entirely so they don't look bookable
+  // Build a set of hours covered mid-booking (booking started in a previous hour)
+  // But never skip an hour that has its OWN booking starting in it
   const midBookingHours = new Set();
   dayBookings.forEach(b => {
     const bEnd = b.startMins + b.durMins;
@@ -1178,6 +1181,8 @@ function renderTimeline() {
     const endHr = Math.ceil(bEnd / 60);
     for (let h = startHr + 1; h < endHr; h++) midBookingHours.add(h);
   });
+  // Remove any hour that has a booking starting in it — must always show those
+  dayBookings.forEach(b => midBookingHours.delete(Math.floor(b.startMins / 60)));
 
   for (let hour = startHour; hour < endHour; hour++) {
     // Skip hours that are inside an ongoing booking — booking already shown at its start hour
@@ -1378,11 +1383,12 @@ function confirmBooking() {
     }
   }
 
-  // Write all bookings
+  // Write all bookings — tag with seriesId if recurring so we can edit/cancel the series later
+  const seriesId = allDates.length > 1 ? (Date.now().toString(36) + Math.random().toString(36).slice(2,5)) : null;
   const updates = {};
   allDates.forEach(dk => {
     const rid = Date.now().toString(36) + Math.random().toString(36).slice(2,5);
-    updates[rid] = { ...booking, id: rid, date: dk };
+    updates[rid] = { ...booking, id: rid, date: dk, ...(seriesId ? { seriesId } : {}) };
   });
 
   bookingsRef.update(updates)
@@ -1404,17 +1410,22 @@ function showDetail(id) {
   const endMins = b.startMins + b.durMins;
   const badgeCls = b.type === 'Match' ? 'bm' : b.type === 'Training' ? 'bt' : 'bo';
 
+  const seriesBookings = b.seriesId ? Object.values(liveBookings).filter(x => x.seriesId === b.seriesId).sort((a,x) => a.date.localeCompare(x.date)) : [];
+  const seriesInfo = seriesBookings.length > 1 ? `<span style="font-size:11px;background:#eef2ff;color:#3730a3;padding:3px 8px;border-radius:10px;margin-left:8px">Series · ${seriesBookings.length} bookings</span>` : '';
+
   document.getElementById('bookingDetail').innerHTML = `
-    <span class="booking-badge ${badgeCls}">${b.type}</span>
+    <span class="booking-badge ${badgeCls}">${b.type}</span>${seriesInfo}
     <div class="detail-row"><div class="detail-icon">👥</div><div><div class="detail-label">Team / Group</div><div class="detail-value">${b.team}</div></div></div>
     <div class="detail-row"><div class="detail-icon">📅</div><div><div class="detail-label">Date</div><div class="detail-value">${DAYS_FULL[d.getDay()]}, ${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}</div></div></div>
     <div class="detail-row"><div class="detail-icon">🕐</div><div><div class="detail-label">Time</div><div class="detail-value">${minsToStr(b.startMins)} – ${minsToStr(endMins)} (${durLabel(b.durMins)})</div></div></div>
-    <div class="detail-row"><div class="detail-icon">🌐</div><div><div class="detail-label">Pitch</div><div class="detail-value">${pitch}${b.section && b.section !== 'full' ? ' · ' + (b.section === 'north' ? 'Top Half' : 'Bottom Half') : ''}</div></div></div>
+    <div class="detail-row"><div class="detail-icon">🏟️</div><div><div class="detail-label">Pitch</div><div class="detail-value">${pitch}${b.section && b.section !== 'full' ? ' · ' + (b.section === 'north' ? 'Top Half' : 'Bottom Half') : ''}</div></div></div>
     <div class="detail-row"><div class="detail-icon">👤</div><div><div class="detail-label">Booked by</div><div class="detail-value">${b.user}</div></div></div>
     ${b.sport ? `<div class="detail-row"><div class="detail-icon">${bookingIcon(b)}</div><div><div class="detail-label">Sport</div><div class="detail-value">${b.sport}</div></div></div>` : ''}
     ${b.notes ? `<div class="detail-row"><div class="detail-icon">📝</div><div><div class="detail-label">Notes</div><div class="detail-value">${b.notes}</div></div></div>` : ''}
   `;
-  document.getElementById('cancelBookingBtn').style.display = b.date < todayStr() ? 'none' : 'block';
+  const isPastBooking = b.date < todayStr();
+  document.getElementById('cancelBookingBtn').style.display = isPastBooking ? 'none' : 'block';
+  document.getElementById('editBookingBtn').style.display = isPastBooking ? 'none' : 'block';
   openModal('detailModal');
 }
 
@@ -1425,6 +1436,117 @@ function cancelCurrentBooking() {
   ref.remove()
     .then(() => { closeModal('detailModal'); showToast('Booking cancelled'); })
     .catch(() => showToast('Error — check connection'));
+}
+
+function editCurrentBooking() {
+  const b = liveBookings[ui.detailId] || Object.values(liveBookings).find(x => x.id === ui.detailId);
+  if (!b) return;
+
+  const seriesBookings = b.seriesId
+    ? Object.values(liveBookings)
+        .filter(x => x.seriesId === b.seriesId && x.date >= b.date)
+        .sort((a, x) => a.date.localeCompare(x.date))
+    : [];
+
+  if (seriesBookings.length > 1) {
+    // Ask: this one or all future
+    const choice = confirm(`This is part of a series (${seriesBookings.length} future bookings).
+
+Tap OK to edit ALL future bookings in this series.
+Tap Cancel to edit only this booking.`);
+    ui.editMode = choice ? 'series' : 'single';
+  } else {
+    ui.editMode = 'single';
+  }
+
+  // Pre-fill the booking form with existing values
+  closeModal('detailModal');
+
+  // Set calendar context to match booking
+  ui.selectedDate = b.date;
+  ui.selectedPitch = b.pitch;
+  ui.selectedSection = b.section || 'full';
+  ui.bookStartMins = b.startMins;
+  ui.bookDurMins = b.durMins;
+
+  const secLabels = { full: '', north: ' · Top Half', south: ' · Bottom Half' };
+  document.getElementById('bookModalTitle').textContent = 'Edit Booking — ' + (settings.pitches[b.pitch] || 'Pitch') + (secLabels[ui.selectedSection] || '');
+
+  // Fill form fields
+  document.getElementById('bookTeam').value = b.team || '';
+  document.getElementById('bookUser').value = b.user || settings.userName || '';
+  document.getElementById('bookNotes').value = b.notes || '';
+
+  // Set type chip
+  document.querySelectorAll('[data-group="type"]').forEach(c => c.classList.toggle('selected', c.dataset.val === (b.type || 'Training')));
+  // Set sport chip
+  document.querySelectorAll('[data-group="sport"]').forEach(c => c.classList.toggle('selected', c.dataset.val === (b.sport || 'Football')));
+  // Reset repeat to Once (editing doesn't add new recurrences)
+  document.querySelectorAll('[data-group="repeat"]').forEach(c => c.classList.toggle('selected', c.dataset.val === 'none'));
+  document.getElementById('repeatWeeksRow').classList.remove('visible');
+  document.getElementById('repeatPreview').textContent = '';
+
+  renderStartTimeGrid();
+  renderDurGrid();
+  updateTimeSummary();
+
+  // Change confirm button label and wire to saveEdit
+  const btn = document.getElementById('confirmBookingBtn');
+  btn.textContent = 'Save Changes';
+  btn.onclick = saveEdit;
+  ui.editingId = ui.detailId;
+
+  openModal('bookModal');
+}
+
+function saveEdit() {
+  if (ui.bookStartMins === null) { showToast('Please select a start time'); return; }
+  if (!ui.bookDurMins) { showToast('Please select a duration'); return; }
+  const team = document.getElementById('bookTeam').value.trim();
+  if (!team) { showToast('Please enter team / group name'); return; }
+  const user = document.getElementById('bookUser').value.trim() || 'Unknown';
+  const type = document.querySelector('[data-group="type"].selected')?.dataset.val || 'Training';
+  const sport = document.querySelector('[data-group="sport"].selected')?.dataset.val || 'Football';
+  const notes = document.getElementById('bookNotes').value.trim();
+  const sec = ui.selectedSection || 'full';
+
+  const original = liveBookings[ui.editingId] || Object.values(liveBookings).find(x => x.id === ui.editingId);
+  if (!original) { showToast('Booking not found'); return; }
+
+  // Check for conflicts (excluding the booking(s) being edited)
+  if (getOverlappingBooking(original.date, original.pitch, ui.bookStartMins, ui.bookDurMins, sec, original.id)) {
+    showToast('Time conflict — choose another slot');
+    return;
+  }
+
+  const updates = {};
+
+  if (ui.editMode === 'series' && original.seriesId) {
+    // Update all future bookings in series — keep their dates, update everything else
+    const futureSeries = Object.values(liveBookings)
+      .filter(x => x.seriesId === original.seriesId && x.date >= original.date);
+    futureSeries.forEach(x => {
+      updates[x.id] = { ...x, team, user, type, sport, notes, section: sec,
+        startMins: ui.bookStartMins, durMins: ui.bookDurMins };
+    });
+  } else {
+    // Single booking edit
+    updates[original.id] = { ...original, team, user, type, sport, notes, section: sec,
+      startMins: ui.bookStartMins, durMins: ui.bookDurMins };
+  }
+
+  bookingsRef.update(updates)
+    .then(() => {
+      closeModal('bookModal');
+      // Reset confirm button back to normal
+      const btn = document.getElementById('confirmBookingBtn');
+      btn.textContent = 'Confirm Booking';
+      btn.onclick = confirmBooking;
+      ui.editingId = null; ui.editMode = null;
+      const msg = ui.editMode === 'series' ? 'Series updated ✓' : 'Booking updated ✓';
+      showToast('Booking updated ✓');
+    })
+    .catch(() => showToast('Save failed — check connection'));
 }
 
 // ══ NAVIGATION ═══════════════════════════════════════════════════════
@@ -1513,8 +1635,8 @@ function renderSettings() {
 function bookingIcon(b) {
   const sport = b.sport || '';
   if (sport === 'Hurling' || sport === 'Camogie') return '🏑';
-  if (sport === 'Football' || sport === 'Ladies Football') return '🏐';
-  if (b.type === 'Match') return '🥅';
+  if (sport === 'Football' || sport === 'Ladies Football') return '⚽';
+  if (b.type === 'Match') return '🏆';
   if (b.type === 'Blitz') return '🏅';
   return '📋';
 }
