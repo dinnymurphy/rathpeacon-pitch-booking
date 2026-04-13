@@ -184,6 +184,18 @@
   .digest-body { padding: 20px; }
   .digest-text { background: var(--off-white); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px; font-size: 13px; line-height: 1.7; white-space: pre-wrap; font-family: inherit; color: var(--text-main); min-height: 200px; max-height: 55vh; overflow-y: auto; }
   .digest-footer { padding: 0 20px 20px; display: flex; gap: 10px; }
+  /* ── CONFLICT RESOLUTION ── */
+  .conflict-item { background: white; border: 1.5px solid var(--border); border-radius: var(--radius-sm); padding: 12px 14px; margin-bottom: 10px; }
+  .conflict-item.resolved { border-color: var(--blue-light); background: var(--blue-pale); }
+  .conflict-item.skipped { opacity: 0.5; }
+  .conflict-date { font-size: 14px; font-weight: 600; color: var(--text-main); margin-bottom: 4px; }
+  .conflict-clash { font-size: 12px; color: var(--danger); margin-bottom: 10px; }
+  .conflict-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+  .conflict-alt-chip { padding: 6px 12px; border-radius: 20px; border: 1.5px solid var(--border); font-size: 13px; font-weight: 500; cursor: pointer; background: white; transition: all 0.12s; }
+  .conflict-alt-chip.selected { background: var(--blue-dark); border-color: var(--blue-dark); color: white; }
+  .conflict-skip-chip { padding: 6px 12px; border-radius: 20px; border: 1.5px solid var(--border); font-size: 13px; color: var(--text-muted); cursor: pointer; background: white; }
+  .conflict-skip-chip.selected { background: var(--danger-light); border-color: var(--danger); color: var(--danger); }
+
   /* ── VIEW TOGGLE ── */
   .view-toggle-bar { background: white; border-bottom: 1px solid var(--border); display: flex; justify-content: center; padding: 8px 16px; }
   .view-toggle { display: flex; background: var(--off-white); border-radius: 8px; padding: 3px; gap: 2px; }
@@ -615,6 +627,25 @@
   </div>
 </div>
 
+<!-- CONFLICT RESOLUTION MODAL -->
+<div class="modal-overlay hidden" id="conflictModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-header">
+      <div class="modal-title">⚠️ Conflicts Found</div>
+      <button class="modal-close" onclick="closeModal('conflictModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:14px;color:var(--text-muted);margin-bottom:16px">Some dates are already booked. Choose an alternative pitch for each conflict, or skip that date.</p>
+      <div id="conflictList"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('conflictModal')">Back</button>
+      <button class="btn btn-primary" onclick="confirmWithResolutions()">Book All</button>
+    </div>
+  </div>
+</div>
+
 <button class="fab" id="fabBtn" onclick="openBookModal(null)" style="display:none">+</button>
 
 <!-- DIGEST MODAL -->
@@ -697,6 +728,8 @@ let ui = {
   editMode: null,
   editPitch: null,
   editSection: null,
+  pendingBooking: null,
+  conflictResolutions: {},
   bookStartMins: null,
   bookDurMins: null,
   loading: true
@@ -1426,29 +1459,146 @@ function confirmBooking() {
   const repeatCount = repeatType === 'none' ? 1 : (parseInt(document.getElementById('repeatCount').value) || 4);
   const allDates = getRepeatDates(ui.selectedDate, repeatType, repeatCount);
 
-  // Check conflicts on all dates
-  for (const dk of allDates) {
-    if (getOverlappingBooking(dk, ui.selectedPitch, ui.bookStartMins, ui.bookDurMins, sec)) {
-      showToast(`Conflict on ${dk} — fix before repeating`);
-      return;
-    }
+  // Check for conflicts across all dates
+  const conflicts = allDates.filter(dk =>
+    getOverlappingBooking(dk, ui.selectedPitch, ui.bookStartMins, ui.bookDurMins, sec)
+  );
+
+  if (conflicts.length > 0) {
+    // Store pending booking info and show resolution modal
+    ui.pendingBooking = { booking, allDates, sec, seriesId: allDates.length > 1 ? (Date.now().toString(36) + Math.random().toString(36).slice(2,5)) : null };
+    ui.conflictResolutions = {}; // dk -> { pitch, section } or 'skip'
+    openConflictModal(conflicts, booking);
+    return;
   }
 
-  // Write all bookings — tag with seriesId if recurring so we can edit/cancel the series later
-  const seriesId = allDates.length > 1 ? (Date.now().toString(36) + Math.random().toString(36).slice(2,5)) : null;
+  saveBookingSeries(booking, allDates, sec, allDates.length > 1 ? (Date.now().toString(36) + Math.random().toString(36).slice(2,5)) : null);
+}
+
+function saveBookingSeries(booking, allDates, sec, seriesId) {
   const updates = {};
   allDates.forEach(dk => {
     const rid = Date.now().toString(36) + Math.random().toString(36).slice(2,5);
-    updates[rid] = { ...booking, id: rid, date: dk, ...(seriesId ? { seriesId } : {}) };
+    // Check if this date has a conflict resolution
+    const res = ui.conflictResolutions && ui.conflictResolutions[dk];
+    if (res === 'skip') return; // skip this date
+    const pitchOverride = res ? res.pitch : booking.pitch;
+    const secOverride = res ? res.section : sec;
+    updates[rid] = { ...booking, id: rid, date: dk, pitch: pitchOverride, section: secOverride, ...(seriesId ? { seriesId } : {}) };
   });
 
   bookingsRef.update(updates)
     .then(() => {
       closeModal('bookModal');
-      const msg = allDates.length > 1 ? `${allDates.length} bookings confirmed ✓` : 'Booking confirmed ✓';
-      showToast(msg);
+      closeModal('conflictModal');
+      ui.pendingBooking = null;
+      ui.conflictResolutions = {};
+      const saved = Object.keys(updates).length;
+      showToast(saved > 1 ? `${saved} bookings confirmed ✓` : 'Booking confirmed ✓');
     })
     .catch(() => showToast('Save failed — check connection'));
+}
+
+function openConflictModal(conflictDates, booking) {
+  const pitches = settings.pitches || [];
+  const html = conflictDates.map(dk => {
+    const d = new Date(dk + 'T12:00:00');
+    const dateLabel = `${DAYS_FULL[d.getDay()]}, ${d.getDate()} ${MONTHS_S[d.getMonth()]}`;
+    const clash = Object.values(liveBookings).find(b =>
+      b.date === dk && b.pitch === booking.pitch &&
+      b.startMins < booking.startMins + booking.durMins &&
+      b.startMins + b.durMins > booking.startMins
+    );
+    const clashLabel = clash ? `${clash.team} already booked ${minsToStr(clash.startMins)}–${minsToStr(clash.startMins+clash.durMins)}` : 'Conflict';
+
+    const altChips = pitches.map((p, i) => {
+      if (i === booking.pitch) return ''; // skip the original pitch
+      const hasConflict = !!getOverlappingBooking(dk, i, booking.startMins, booking.durMins, 'full');
+      if (hasConflict) return '';
+      return `<div class="conflict-alt-chip" data-dk="${dk}" data-pitch="${i}" data-sec="full" onclick="resolveConflict('${dk}',${i},'full',this)">${p}</div>`;
+    }).join('');
+
+    // Also offer Top/Bottom half of original pitch if it's Main Pitch
+    const pitchName = (pitches[booking.pitch] || '').toLowerCase();
+    let halfChips = '';
+    if (pitchName.includes('main')) {
+      ['north','south'].forEach(sec => {
+        const secLabel = sec === 'north' ? 'Top Half' : 'Bottom Half';
+        const hasConflict = !!getOverlappingBooking(dk, booking.pitch, booking.startMins, booking.durMins, sec);
+        if (!hasConflict) halfChips += `<div class="conflict-alt-chip" data-dk="${dk}" data-pitch="${booking.pitch}" data-sec="${sec}" onclick="resolveConflict('${dk}',${booking.pitch},'${sec}',this)">${pitches[booking.pitch]} · ${secLabel}</div>`;
+      });
+    }
+
+    const hasAnyAlt = altChips || halfChips;
+
+    return `<div class="conflict-item" id="citem-${dk.replace(/-/g,'_')}">
+      <div class="conflict-date">${dateLabel}</div>
+      <div class="conflict-clash">${clashLabel}</div>
+      <div class="conflict-actions">
+        ${halfChips}${altChips}
+        <div class="conflict-skip-chip" data-dk="${dk}" onclick="resolveSkip('${dk}',this)">Skip this date</div>
+        ${!hasAnyAlt ? '<span style="font-size:12px;color:var(--text-muted)">No alternatives available — date will be skipped</span>' : ''}
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('conflictList').innerHTML = html;
+
+  // Auto-skip dates with no alternatives
+  conflictDates.forEach(dk => {
+    const pitches2 = settings.pitches || [];
+    const hasAlt = pitches2.some((p, i) => {
+      if (i === booking.pitch) return false;
+      return !getOverlappingBooking(dk, i, booking.startMins, booking.durMins, 'full');
+    });
+    const pitchName2 = (pitches2[booking.pitch] || '').toLowerCase();
+    const hasHalf = pitchName2.includes('main') && ['north','south'].some(s =>
+      !getOverlappingBooking(dk, booking.pitch, booking.startMins, booking.durMins, s)
+    );
+    if (!hasAlt && !hasHalf) {
+      ui.conflictResolutions[dk] = 'skip';
+    }
+  });
+
+  openModal('conflictModal');
+}
+
+function resolveConflict(dk, pitchIdx, sec, el) {
+  ui.conflictResolutions[dk] = { pitch: pitchIdx, section: sec };
+  // Update UI — deselect others for this date, select this
+  const item = document.getElementById('citem-' + dk.replace(/-/g,'_'));
+  if (item) {
+    item.querySelectorAll('.conflict-alt-chip,.conflict-skip-chip').forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
+    item.classList.add('resolved');
+    item.classList.remove('skipped');
+  }
+}
+
+function resolveSkip(dk, el) {
+  ui.conflictResolutions[dk] = 'skip';
+  const item = document.getElementById('citem-' + dk.replace(/-/g,'_'));
+  if (item) {
+    item.querySelectorAll('.conflict-alt-chip,.conflict-skip-chip').forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
+    item.classList.add('skipped');
+    item.classList.remove('resolved');
+  }
+}
+
+function confirmWithResolutions() {
+  const p = ui.pendingBooking;
+  if (!p) return;
+  // Check all conflicts have been addressed
+  const conflictDates = p.allDates.filter(dk =>
+    getOverlappingBooking(dk, p.booking.pitch, p.booking.startMins, p.booking.durMins, p.sec)
+  );
+  const unresolved = conflictDates.filter(dk => !ui.conflictResolutions[dk]);
+  if (unresolved.length > 0) {
+    showToast(`Please resolve all conflicts first`);
+    return;
+  }
+  saveBookingSeries(p.booking, p.allDates, p.sec, p.seriesId);
 }
 
 // ══ DETAIL MODAL ═════════════════════════════════════════════════════
