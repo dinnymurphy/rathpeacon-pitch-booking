@@ -787,8 +787,9 @@ function getOverlappingBooking(dateStr, pitchIdx, startMins, durMins, section, e
 
 // Is a specific start time blocked for the current section?
 function isStartTimeBlocked(dateStr, pitchIdx, startMins) {
-  const sec = ui.selectedSection || 'full';
+  const sec = (ui.editingId ? ui.editSection : ui.selectedSection) || 'full';
   return Object.values(liveBookings).some(b => {
+    if (b.id === ui.editingId) return false; // never block on the booking being edited
     if (b.date !== dateStr || b.pitch !== pitchIdx) return false;
     if (!(startMins >= b.startMins && startMins < b.startMins + b.durMins)) return false;
     const bSec = b.section || 'full';
@@ -801,8 +802,9 @@ function isStartTimeBlocked(dateStr, pitchIdx, startMins) {
 function maxDurFrom(dateStr, pitchIdx, startMins) {
   const { end } = dayBounds(dateStr);
   let max = end - startMins;
-  const sec = ui.selectedSection || 'full';
+  const sec = (ui.editingId ? ui.editSection : ui.selectedSection) || 'full';
   Object.values(liveBookings).forEach(b => {
+    if (b.id === ui.editingId) return; // ignore the booking being edited
     if (b.date !== dateStr || b.pitch !== pitchIdx) return;
     if (b.startMins <= startMins) return;
     const bSec = b.section || 'full';
@@ -1358,14 +1360,18 @@ function openBookModal(preselectedStartMins) {
 }
 
 function renderStartTimeGrid() {
-  const times = getStartTimes(ui.selectedDate);
+  const dateForGrid = ui.editingId
+    ? (liveBookings[ui.editingId] || Object.values(liveBookings).find(x => x.id === ui.editingId))?.date || ui.selectedDate
+    : ui.selectedDate;
+  const pitchForGrid = ui.editingId ? (ui.editPitch !== null ? ui.editPitch : ui.selectedPitch) : ui.selectedPitch;
+  const times = getStartTimes(dateForGrid);
   const today = todayStr();
   const now = new Date();
   const nowMins = now.getHours() * 60 + now.getMinutes();
 
   document.getElementById('startTimeGrid').innerHTML = times.map(m => {
-    const blocked = isStartTimeBlocked(ui.selectedDate, ui.selectedPitch, m);
-    const isPast = ui.selectedDate < today || (ui.selectedDate === today && m <= nowMins);
+    const blocked = isStartTimeBlocked(dateForGrid, pitchForGrid, m);
+    const isPast = dateForGrid < today || (dateForGrid === today && m <= nowMins);
     const isSel = m === ui.bookStartMins;
     const hour = Math.floor(m / 60);
     const min = m % 60;
@@ -1393,8 +1399,12 @@ function renderDurGrid() {
     document.getElementById('durGrid').innerHTML = `<div style="grid-column:1/-1;font-size:13px;color:var(--text-muted);padding:8px 0">Select a start time first</div>`;
     return;
   }
-  const maxDur = maxDurFrom(ui.selectedDate, ui.selectedPitch, ui.bookStartMins);
-  const { end } = dayBounds(ui.selectedDate);
+  const dateForDur = ui.editingId
+    ? (liveBookings[ui.editingId] || Object.values(liveBookings).find(x => x.id === ui.editingId))?.date || ui.selectedDate
+    : ui.selectedDate;
+  const pitchForDur = ui.editingId ? (ui.editPitch !== null ? ui.editPitch : ui.selectedPitch) : ui.selectedPitch;
+  const maxDur = maxDurFrom(dateForDur, pitchForDur, ui.bookStartMins);
+  const { end } = dayBounds(dateForDur);
   const absoluteMax = end - ui.bookStartMins;
 
   document.getElementById('durGrid').innerHTML = DURATIONS.map(d => {
