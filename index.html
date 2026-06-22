@@ -1701,6 +1701,9 @@ Tap Cancel to edit only this booking.`);
   document.getElementById('repeatWeeksRow').classList.remove('visible');
   document.getElementById('repeatPreview').textContent = '';
 
+  // Set editingId BEFORE rendering grids so conflict checks exclude this booking
+  ui.editingId = ui.detailId;
+
   renderStartTimeGrid();
   renderDurGrid();
   updateTimeSummary();
@@ -1709,7 +1712,6 @@ Tap Cancel to edit only this booking.`);
   const btn = document.getElementById('confirmBookingBtn');
   btn.textContent = 'Save Changes';
   btn.onclick = saveEdit;
-  ui.editingId = ui.detailId;
 
   openModal('bookModal');
 }
